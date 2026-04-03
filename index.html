@@ -8,11 +8,6 @@
 <meta name="apple-mobile-web-app-title" content="우리가계부"/>
 <meta name="theme-color" id="theme-color-meta" content="#0f172a"/>
 <title>우리 가계부 💴</title>
-<!-- PWA -->
-<link rel="manifest" href="manifest.json"/>
-<link rel="apple-touch-icon" href="icon-192.png"/>
-<meta name="mobile-web-app-capable" content="yes"/>
-<meta name="application-name" content="가계부"/>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet"/>
 <style>
 /* ── 다크 / 라이트 테마 변수 ────────────────────────────── */
@@ -570,7 +565,7 @@ let editExpId=null, editLoanId=null, selectedCat='etc', expFilter='all';
 // ── STORAGE ───────────────────────────────────────────────────────────────────
 function mk(y,m){return `${y??curYear}-${String(m??curMonth).padStart(2,'0')}`;}
 function ls(k){try{return JSON.parse(localStorage.getItem(k));}catch{return null;}}
-function lss(k,v){localStorage.setItem(k,JSON.stringify(v));}
+function lss(k,v){localStorage.setItem(k,JSON.stringify(v));fbPush(k,v);}
 function fmt(n){return Number(n||0).toLocaleString('ko-KR')+'원';}
 function num(s){return parseInt(String(s||'0').replace(/[^0-9]/g,''),10)||0;}
 function numf(s){return parseFloat(String(s||'0'))||0;}
@@ -1242,15 +1237,22 @@ function saveFbConfig(){
   fb.projectId=document.getElementById('fb-projectid').value;
   lss('fb-config',fb);
 }
-function toggleFirebase(v){
+async function toggleFirebase(v){
   const fb=ls('fb-config')||{};
   if(v&&(!fb.apiKey||!fb.projectId)){
     alert('Firebase API Key와 Project ID를 먼저 입력해주세요');
     document.getElementById('fb-toggle').checked=false;return;
   }
-  fb.enabled=v;lss('fb-config',fb);
+  fb.enabled=v;
+  localStorage.setItem('fb-config',JSON.stringify(fb));
   document.getElementById('fb-status').textContent=v?'✅ 활성화됨':'비활성화됨';
-  if(v)showToast('Firebase 설정 저장됐어요 ✓');
+  if(v){
+    showToast('Firebase 연결 중...');
+    await fbInit();
+  } else {
+    fbDisable();
+    showToast('Firebase 연결 해제됐어요');
+  }
 }
 
 // 데이터 백업/복원
@@ -1319,74 +1321,109 @@ function importShareCode(){
 // ── TOAST ─────────────────────────────────────────────────────────────────────
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
 
-// ── INIT ──────────────────────────────────────────────────────────────────────
-loadTheme();
-renderAll();
-</script>
-</body>
-</html>
 
-<!-- ── PWA Install Banner ───────────────────────────────────────────────── -->
-<div id="install-banner" style="
-  position:fixed;bottom:80px;left:50%;
-  transform:translateX(-50%) translateY(120px);
-  width:calc(100% - 32px);max-width:398px;
-  background:linear-gradient(135deg,#1a2234,#0d2040);
-  border:1px solid #f0c27f55;border-radius:16px;
-  padding:14px 16px;display:flex;align-items:center;gap:12px;
-  z-index:999;transition:transform .35s cubic-bezier(.34,1.56,.64,1);
-  box-shadow:0 8px 32px rgba(0,0,0,.5)">
-  <div style="font-size:28px">💴</div>
-  <div style="flex:1">
-    <div style="font-size:13px;font-weight:700;color:#f0c27f">앱으로 설치하기</div>
-    <div style="font-size:11px;color:#94a3b8;margin-top:2px">오프라인에서도 사용 가능해요</div>
-  </div>
-  <button id="install-btn" style="
-    background:#f0c27f;color:#0f172a;border:none;border-radius:8px;
-    padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;
-    font-family:'Noto Sans KR',sans-serif">설치</button>
-  <button id="install-dismiss" style="
-    background:none;border:none;color:#64748b;font-size:18px;
-    cursor:pointer;padding:4px;line-height:1">✕</button>
-</div>
+// ── FIREBASE 실시간 동기화 엔진 ───────────────────────────────────────────────
+let _db = null;
+let _fbEnabled = false;
+let _unsub = null;
+let _pushing = false;
 
-<script>
-// ── 서비스 워커 등록 ───────────────────────────────────────────────────────────
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .then(r => console.log('SW 등록:', r.scope))
-      .catch(e => console.warn('SW 실패:', e));
+// fb-config는 동기화 제외 키
+const FB_SKIP_KEYS = new Set(['fb-config','theme','mock-user']);
+const FB_DOC = 'household';
+const FB_COL = 'gaebu';
+
+function fbLoadScript(src){
+  return new Promise((res,rej)=>{
+    if(document.querySelector(`script[src="${src}"]`)){res();return;}
+    const s=document.createElement('script');
+    s.src=src; s.onload=res; s.onerror=rej;
+    document.head.appendChild(s);
   });
 }
 
-// ── 설치 배너 ─────────────────────────────────────────────────────────────────
-let _deferredPrompt = null;
-const _banner   = document.getElementById('install-banner');
-const _installB = document.getElementById('install-btn');
-const _dismissB = document.getElementById('install-dismiss');
+async function fbInit(){
+  const fb=ls('fb-config')||{};
+  if(!fb.apiKey||!fb.projectId) return;
+  try {
+    await fbLoadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js');
+    await fbLoadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js');
 
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-  _deferredPrompt = e;
-  if (window.matchMedia('(display-mode: standalone)').matches) return;
-  _banner.style.transform = 'translateX(-50%) translateY(0)';
-});
+    if(!firebase.apps.length){
+      firebase.initializeApp({
+        apiKey: fb.apiKey,
+        authDomain: fb.projectId+'.firebaseapp.com',
+        projectId: fb.projectId,
+      });
+    }
+    _db = firebase.firestore();
+    _fbEnabled = true;
 
-_installB && _installB.addEventListener('click', async () => {
-  if (!_deferredPrompt) return;
-  _deferredPrompt.prompt();
-  const { outcome } = await _deferredPrompt.userChoice;
-  if (outcome === 'accepted') setTimeout(() => showToast('앱 설치 완료! 📱'), 500);
-  _deferredPrompt = null;
-  _banner.style.transform = 'translateX(-50%) translateY(120px)';
-});
+    // 앱 시작 시 클라우드 데이터를 로컬에 덮어쓰기
+    await fbPull();
 
-_dismissB && _dismissB.addEventListener('click', () => {
-  _banner.style.transform = 'translateX(-50%) translateY(120px)';
-});
+    // 실시간 변경 감지 (다른 기기가 데이터 변경 시 자동 반영)
+    if(_unsub) _unsub();
+    _unsub = _db.collection(FB_COL).doc(FB_DOC).onSnapshot(snap=>{
+      if(!snap.exists) return;
+      if(_pushing) return; // 내가 쓰는 중이면 무시
+      const data = snap.data();
+      let changed = false;
+      Object.keys(data).forEach(k=>{
+        if(FB_SKIP_KEYS.has(k)) return;
+        const cloudVal = JSON.stringify(data[k]);
+        const localVal = localStorage.getItem(k);
+        if(cloudVal !== localVal){
+          localStorage.setItem(k, cloudVal);
+          changed = true;
+        }
+      });
+      if(changed){ renderAll(); showToast('☁️ 동기화됐어요'); }
+    });
 
-if (window.matchMedia('(display-mode: standalone)').matches) {
-  _banner && (_banner.style.display = 'none');
+    showToast('☁️ Firebase 연결됐어요 ✓');
+  } catch(e){
+    console.error('fbInit error', e);
+    _fbEnabled = false;
+    showToast('Firebase 연결 실패 :(');
+  }
 }
+
+async function fbPull(){
+  if(!_db) return;
+  try {
+    const snap = await _db.collection(FB_COL).doc(FB_DOC).get();
+    if(!snap.exists) return;
+    const data = snap.data();
+    Object.keys(data).forEach(k=>{
+      if(FB_SKIP_KEYS.has(k)) return;
+      localStorage.setItem(k, JSON.stringify(data[k]));
+    });
+    renderAll();
+  } catch(e){ console.error('fbPull error', e); }
+}
+
+async function fbPush(k, v){
+  if(!_db || !_fbEnabled) return;
+  if(FB_SKIP_KEYS.has(k)) return;
+  try {
+    _pushing = true;
+    await _db.collection(FB_COL).doc(FB_DOC).set({ [k]: v, _ts: Date.now() }, { merge: true });
+  } catch(e){ console.error('fbPush error', e); }
+  finally { setTimeout(()=>{ _pushing=false; }, 300); }
+}
+
+function fbDisable(){
+  if(_unsub){ _unsub(); _unsub=null; }
+  _db=null; _fbEnabled=false;
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+loadTheme();
+renderAll();
+(async()=>{ const fb=ls('fb-config')||{}; if(fb.enabled&&fb.apiKey&&fb.projectId) await fbInit(); })();
+// Firebase 자동 초기화 (이전에 활성화했던 경우)
+(async()=>{ const fb=ls('fb-config')||{}; if(fb.enabled&&fb.apiKey&&fb.projectId) await fbInit(); })();
 </script>
+</body>
+</html>
