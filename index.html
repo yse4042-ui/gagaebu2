@@ -859,7 +859,7 @@ function renderHome(){
     return a+(active?num(cfg.monthlyAmount):0)+extraThisMonth;
   },0);
   // 잔여 = 수입 - 지출 - 대출 - 고정 - 적금납입(월+추가)
-  const bal=totalInc-totalExp-totalLoan-totalFixed-monthSavPay;
+  const bal=totalInc-totalExp-totalFixed-monthSavPay;
 
   const balEl=document.getElementById('h-balance');
   balEl.textContent=(bal>=0?'+':'')+fmt(bal);
