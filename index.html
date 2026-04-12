@@ -8,6 +8,8 @@
 <meta name="apple-mobile-web-app-title" content="우리가계부"/>
 <meta name="theme-color" id="theme-color-meta" content="#0f172a"/>
 <title>우리 가계부 💴</title>
+<link rel="manifest" href="manifest.json"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet"/>
 <style>
 :root{
@@ -31,6 +33,42 @@
   --blue:#2563eb;--blue-dim:#eff6ff;--blue-border:#93c5fd;
   --purple:#7c3aed;--purple-dim:#f5f3ff;--purple-border:#c4b5fd;
   --prog-bg:#e2e8f0;
+}
+/* 파스텔 민트 */
+.theme-mint{
+  --bg:#f0faf7;--bg2:#e0f5ef;--card:#ffffff;--card2:#f5fffc;
+  --border:#c9eee5;--border2:#a8ddd0;
+  --text:#1a3330;--text2:#3d6b63;--text3:#6b9c93;--text4:#9bc8be;
+  --accent:#0e9f7e;--accent-dim:#d1fae5;--accent-border:#6ee7b7;
+  --green:#059669;--green-dim:#ecfdf5;--green-border:#6ee7b7;
+  --red:#e11d48;--red-dim:#fff1f2;--red-border:#fda4af;
+  --blue:#0284c7;--blue-dim:#f0f9ff;--blue-border:#7dd3fc;
+  --purple:#7c3aed;--purple-dim:#f5f3ff;--purple-border:#c4b5fd;
+  --prog-bg:#d1fae5;
+}
+/* 파스텔 라벤더 */
+.theme-lavender{
+  --bg:#f5f3ff;--bg2:#ede9fe;--card:#ffffff;--card2:#faf8ff;
+  --border:#ddd6fe;--border2:#c4b5fd;
+  --text:#1e1b4b;--text2:#4c1d95;--text3:#7c3aed;--text4:#a78bfa;
+  --accent:#7c3aed;--accent-dim:#ede9fe;--accent-border:#c4b5fd;
+  --green:#059669;--green-dim:#ecfdf5;--green-border:#6ee7b7;
+  --red:#e11d48;--red-dim:#fff1f2;--red-border:#fda4af;
+  --blue:#4f46e5;--blue-dim:#eef2ff;--blue-border:#a5b4fc;
+  --purple:#7c3aed;--purple-dim:#f5f3ff;--purple-border:#c4b5fd;
+  --prog-bg:#ede9fe;
+}
+/* 파스텔 피치 */
+.theme-peach{
+  --bg:#fff7f3;--bg2:#feeee6;--card:#ffffff;--card2:#fff9f7;
+  --border:#fdd8c4;--border2:#f9bfa5;
+  --text:#3d1a0a;--text2:#7c3c22;--text3:#b36040;--text4:#d4916b;
+  --accent:#ea580c;--accent-dim:#fff7ed;--accent-border:#fdba74;
+  --green:#16a34a;--green-dim:#f0fdf4;--green-border:#86efac;
+  --red:#dc2626;--red-dim:#fef2f2;--red-border:#fca5a5;
+  --blue:#2563eb;--blue-dim:#eff6ff;--blue-border:#93c5fd;
+  --purple:#9333ea;--purple-dim:#faf5ff;--purple-border:#d8b4fe;
+  --prog-bg:#feeee6;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;max-width:430px;margin:0 auto;overflow-x:hidden;transition:background .3s,color .3s}
@@ -195,7 +233,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
       <button class="arrow-btn" onclick="changeMonth(1)">›</button>
     </div>
     <div class="hero-card" id="h-hero">
-      <div class="hero-sub">💰 이달 총액</div>
+      <div class="hero-sub">💰 이달 총액 <span style="font-size:9px;color:var(--text3)">(수입 - 지출 - 고정 - 대출 - 적금)</span></div>
       <div class="hero-num" id="h-balance">0원</div>
       <div class="hero-row">
         <div class="hero-item"><div class="hero-item-label">💵 수입</div><div class="hero-item-val" id="h-inc" style="color:var(--green)">0원</div></div>
@@ -204,6 +242,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
         <div class="hero-item"><div class="hero-item-label">📌 고정</div><div class="hero-item-val" id="h-fixed" style="color:var(--purple)">0원</div></div>
         <div class="hero-item"><div class="hero-item-label">🏦 적금</div><div class="hero-item-val" id="h-sav" style="color:var(--accent)">0원</div></div>
       </div>
+    </div>
+    <!-- 자산총액 카드: 적금+예금 -->
+    <div style="margin:8px 16px 0;background:linear-gradient(135deg,#0a2010,#0e3a1a);border:1px solid var(--green-border);border-radius:16px;padding:16px">
+      <div style="font-size:11px;color:#4ade80;margin-bottom:4px;font-weight:600">💎 자산 총액 <span style="font-size:9px;color:#4ade8099">(적금 누적 + 예금 원금)</span></div>
+      <div style="font-size:28px;font-weight:900;color:var(--green)" id="h-asset-total">0원</div>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap" id="h-asset-breakdown"></div>
     </div>
     <div class="section" id="h-cats-section" style="display:none">
       <div class="section-label">💸 지출 분류</div>
@@ -219,15 +263,16 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
         <div style="display:flex;justify-content:space-between;margin-top:2px" id="h-sav-graph-labels"></div>
       </div>
     </div>
+    <!-- 예금 현황 -->
+    <div class="section" id="h-deps-section">
+      <div class="section-label">💎 예금 현황</div>
+      <div class="card" id="h-deps"></div>
+    </div>
     <!-- 대출 현황 + 그래프 -->
     <div class="section" id="h-loans-section">
       <div class="section-label">🏛️ 대출 현황</div>
       <div class="card" id="h-loans"></div>
-      <div style="background:var(--card);border-radius:14px;border:1px solid var(--border);padding:12px 14px;margin-top:8px" id="h-loan-graph-wrap">
-        <div style="font-size:10px;color:var(--text3);margin-bottom:6px;font-weight:600">📈 월별 대출 상환 추이 (최근 7개월)</div>
-        <svg class="mini-graph" id="h-loan-graph" viewBox="0 0 300 60" preserveAspectRatio="none"></svg>
-        <div style="display:flex;justify-content:space-between;margin-top:2px" id="h-loan-graph-labels"></div>
-      </div>
+
     </div>
     <div class="section" id="h-recent-section" style="display:none">
       <div class="section-label">🕐 최근 지출</div>
@@ -250,6 +295,11 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
         <div class="ann-sum-item"><div class="ann-sum-label">총 지출</div><div class="ann-sum-val" id="ann-total-exp" style="color:var(--red)"></div></div>
         <div class="ann-sum-item"><div class="ann-sum-label">총 대출상환</div><div class="ann-sum-val" id="ann-total-loan" style="color:var(--blue)"></div></div>
         <div class="ann-sum-item"><div class="ann-sum-label">연간 잔여</div><div class="ann-sum-val" id="ann-total-bal"></div></div>
+      </div>
+      <!-- 적금 연간 요약 -->
+      <div style="background:linear-gradient(135deg,#0a2010,#0e3a1a);border:1px solid var(--green-border);border-radius:12px;padding:14px;margin-bottom:4px">
+        <div style="font-size:11px;color:#4ade80;margin-bottom:10px;font-weight:600">🏦 연간 적금 현황</div>
+        <div id="ann-sav-summary" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
       </div>
       <div style="background:var(--card2);border-radius:12px;padding:14px;border:1px solid var(--blue-border);margin-bottom:4px">
         <div style="font-size:11px;color:var(--blue);margin-bottom:10px;font-weight:600">🏛️ 연간 대출 상환 현황</div>
@@ -277,7 +327,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   <div class="top-bar"><span class="page-title">💵 수입 관리</span></div>
   <div class="month-bar">
     <button class="arrow-btn" onclick="changeMonth(-1)">‹</button>
-    <div style="text-align:center"><div class="month-year" id="i-year"></div><div class="month-name" id="i-month"></div></div>
+    <div style="text-align:center;cursor:pointer" onclick="openDatePicker()">
+      <div class="month-year" id="i-year"></div>
+      <div class="month-name" id="i-month" style="display:flex;align-items:center;gap:4px;justify-content:center"></div>
+    </div>
     <button class="arrow-btn" onclick="changeMonth(1)">›</button>
   </div>
   <div style="margin:0 16px">
@@ -291,6 +344,15 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
     <div class="card">
       <div class="field"><label>실수령액 (원)</label><input type="number" id="i-me" placeholder="0" oninput="saveIncome()"/></div>
       <div class="field"><label>비고</label><input type="text" id="i-me-note" placeholder="메모..." oninput="saveIncome()"/></div>
+      <div id="slip-me-wrap"></div>
+      <!-- 앨범용 (capture 없음) -->
+      <input type="file" id="slip-me-gallery" accept="image/*" style="display:none" onchange="handleSlipFile('me',this)"/>
+      <!-- 카메라용 -->
+      <input type="file" id="slip-me-camera" accept="image/*" capture="environment" style="display:none" onchange="handleSlipFile('me',this)"/>
+      <div style="display:flex;gap:8px">
+        <button class="action-btn" style="margin-bottom:0;font-size:13px;flex:1" onclick="document.getElementById('slip-me-gallery').click()">🖼️ 앨범에서 선택</button>
+        <button class="action-btn" style="margin-bottom:0;font-size:13px;flex:1" onclick="document.getElementById('slip-me-camera').click()">📷 카메라 촬영</button>
+      </div>
     </div>
   </div>
   <div class="section">
@@ -298,6 +360,15 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
     <div class="card">
       <div class="field"><label>실수령액 (원)</label><input type="number" id="i-sp" placeholder="0" oninput="saveIncome()"/></div>
       <div class="field"><label>비고</label><input type="text" id="i-sp-note" placeholder="메모..." oninput="saveIncome()"/></div>
+      <div id="slip-sp-wrap"></div>
+      <!-- 앨범용 (capture 없음) -->
+      <input type="file" id="slip-sp-gallery" accept="image/*" style="display:none" onchange="handleSlipFile('sp',this)"/>
+      <!-- 카메라용 -->
+      <input type="file" id="slip-sp-camera" accept="image/*" capture="environment" style="display:none" onchange="handleSlipFile('sp',this)"/>
+      <div style="display:flex;gap:8px">
+        <button class="action-btn" style="margin-bottom:0;font-size:13px;flex:1" onclick="document.getElementById('slip-sp-gallery').click()">🖼️ 앨범에서 선택</button>
+        <button class="action-btn" style="margin-bottom:0;font-size:13px;flex:1" onclick="document.getElementById('slip-sp-camera').click()">📷 카메라 촬영</button>
+      </div>
     </div>
   </div>
   <div class="section">
@@ -305,8 +376,26 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
     <div class="card">
       <div class="field"><label>금액 (원)</label><input type="number" id="i-extra" placeholder="0" oninput="saveIncome()"/></div>
       <div class="field"><label>메모</label><input type="text" id="i-extra-note" placeholder="당직수당 등..." oninput="saveIncome()"/></div>
+      <div id="slip-extra-wrap"></div>
+      <!-- 앨범용 (capture 없음) -->
+      <input type="file" id="slip-extra-gallery" accept="image/*" style="display:none" onchange="handleSlipFile('extra',this)"/>
+      <!-- 카메라용 -->
+      <input type="file" id="slip-extra-camera" accept="image/*" capture="environment" style="display:none" onchange="handleSlipFile('extra',this)"/>
+      <div style="display:flex;gap:8px">
+        <button class="action-btn" style="margin-bottom:0;font-size:13px;flex:1" onclick="document.getElementById('slip-extra-gallery').click()">🖼️ 앨범에서 선택</button>
+        <button class="action-btn" style="margin-bottom:0;font-size:13px;flex:1" onclick="document.getElementById('slip-extra-camera').click()">📷 카메라 촬영</button>
+      </div>
     </div>
   </div>
+</div>
+
+<!-- 명세서 이미지 뷰어 오버레이 -->
+<div id="slip-viewer-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:400;align-items:center;justify-content:center;flex-direction:column" onclick="closeSlipViewer()">
+  <div style="position:relative;max-width:96vw;max-height:88vh">
+    <img id="slip-viewer-img" src="" style="max-width:96vw;max-height:84vh;border-radius:12px;display:block"/>
+    <button onclick="closeSlipViewer()" style="position:absolute;top:-14px;right:-14px;background:#ef4444;border:none;color:#fff;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
+  </div>
+  <button id="slip-viewer-del" style="margin-top:16px;background:#ef4444;border:none;color:#fff;border-radius:10px;padding:10px 24px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif">🗑️ 삭제</button>
 </div>
 
 <!-- ══ EXPENSE ════════════════════════════════════════════════════════════════ -->
@@ -314,7 +403,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   <div class="top-bar"><span class="page-title">💸 지출 관리</span><button class="add-btn" onclick="openExpModal()">+ 추가</button></div>
   <div class="month-bar">
     <button class="arrow-btn" onclick="changeMonth(-1)">‹</button>
-    <div style="text-align:center"><div class="month-year" id="e-year"></div><div class="month-name" id="e-month"></div></div>
+    <div style="text-align:center;cursor:pointer" onclick="openDatePicker()">
+      <div class="month-year" id="e-year"></div>
+      <div class="month-name" id="e-month" style="display:flex;align-items:center;gap:4px;justify-content:center"></div>
+    </div>
     <button class="arrow-btn" onclick="changeMonth(1)">›</button>
   </div>
   <div style="margin:0 16px">
@@ -339,6 +431,20 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
     </div>
   </div>
   <div style="padding:0 16px;margin-top:14px" id="s-list"></div>
+</div>
+
+
+<!-- ══ DEPOSIT ════════════════════════════════════════════════════════════════ -->
+<div id="page-deposit" class="page">
+  <div class="top-bar"><span class="page-title">💎 예금 관리</span><button class="add-btn" onclick="addDeposit()">+ 추가</button></div>
+  <div style="margin:0 16px">
+    <div style="background:linear-gradient(135deg,#0a1a2e,#0d2a4a);border:1px solid var(--blue-border);border-radius:14px;padding:16px">
+      <div style="font-size:11px;color:#7dd3fc;margin-bottom:4px">총 예금 원금</div>
+      <div style="font-size:26px;font-weight:900;color:#93c5fd" id="d-total">0원</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:4px">※ 거치식 예금 (만기 시 원금+이자 수령)</div>
+    </div>
+  </div>
+  <div style="padding:0 16px;margin-top:14px" id="d-list"></div>
 </div>
 
 <!-- ══ LOAN ════════════════════════════════════════════════════════════════ -->
@@ -392,80 +498,31 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
           <button class="theme-opt" id="theme-light" onclick="setTheme('light')">☀️ 라이트</button>
         </div>
       </div>
+      <div id="pastel-theme-section" style="display:none;border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:600">🌸 파스텔 색상 선택</div>
+        <div style="display:flex;gap:8px">
+          <button onclick="setPastelTheme('light')" id="pt-default"
+            style="flex:1;padding:10px 4px;border-radius:10px;border:2px solid var(--border2);background:#f1f5f9;color:#475569;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif">
+            ☀️ 기본
+          </button>
+          <button onclick="setPastelTheme('mint')" id="pt-mint"
+            style="flex:1;padding:10px 4px;border-radius:10px;border:2px solid #a8ddd0;background:#f0faf7;color:#0e9f7e;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif">
+            🌿 민트
+          </button>
+          <button onclick="setPastelTheme('lavender')" id="pt-lavender"
+            style="flex:1;padding:10px 4px;border-radius:10px;border:2px solid #c4b5fd;background:#f5f3ff;color:#7c3aed;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif">
+            💜 라벤더
+          </button>
+          <button onclick="setPastelTheme('peach')" id="pt-peach"
+            style="flex:1;padding:10px 4px;border-radius:10px;border:2px solid #f9bfa5;background:#fff7f3;color:#ea580c;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif">
+            🍑 피치
+          </button>
+        </div>
+      </div>
     </div>
   </div>
   <div class="settings-section">
-    <div class="settings-title">👤 Google 계정 연동</div>
-    <div class="card" id="account-section">
-      <div id="not-logged-in">
-        <div style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.6">
-          Google 계정으로 로그인하면 데이터 식별 ID를 생성할 수 있어요.<br>
-          <span style="color:var(--accent)">※ 실제 클라우드 동기화는 Firebase 설정 후 활성화됩니다.</span>
-        </div>
-        <button class="google-btn" onclick="mockGoogleLogin()">
-          <div class="google-icon" style="background:#fff;color:#333">G</div>Google로 로그인
-        </button>
-      </div>
-      <div id="logged-in" style="display:none">
-        <div class="user-card">
-          <div class="user-avatar" id="user-avatar">👤</div>
-          <div>
-            <div style="font-size:15px;font-weight:700;color:var(--text)" id="user-name">-</div>
-            <div style="font-size:11px;color:var(--text3)" id="user-email">-</div>
-          </div>
-        </div>
-        <button class="action-btn" onclick="mockLogout()">🚪 로그아웃</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 카카오 연동 -->
-  <div class="settings-section">
-    <div class="settings-title">💬 카카오 계정 연동 (동기화)</div>
-    <div class="card">
-      <div id="kakao-not-logged-in">
-        <div style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.6">
-          카카오 로그인 후 <b style="color:var(--text)">같은 카카오 계정</b>으로 여러 기기에서 동일한 데이터를 동기화할 수 있어요.<br><br>
-          <b style="color:var(--accent)">사전 설정 필요:</b><br>
-          1. <span style="color:var(--blue)">developers.kakao.com</span> 앱 등록<br>
-          2. 아래에 JavaScript 앱 키 입력<br>
-          3. 플랫폼 → 사이트 도메인에 GitHub Pages 주소 등록
-        </div>
-        <div class="field"><label>카카오 JavaScript 앱 키</label><input type="text" id="kakao-appkey" placeholder="예: abc123def456..." oninput="saveKakaoKey()"/></div>
-        <button class="kakao-btn" onclick="kakaoLogin()">
-          <span style="font-size:20px">💬</span> 카카오로 시작하기
-        </button>
-        <div style="font-size:11px;color:var(--text4);line-height:1.5">
-          ※ 카카오 로그인 후 Firebase 동기화 설정까지 완료하면<br>카카오 ID 기반으로 데이터가 자동 분리·동기화됩니다.
-        </div>
-      </div>
-      <div id="kakao-logged-in" style="display:none">
-        <div class="user-card">
-          <div class="user-avatar" style="background:#FEE500;color:#000;font-size:16px" id="kakao-avatar">💬</div>
-          <div>
-            <div style="font-size:15px;font-weight:700;color:var(--text)" id="kakao-name">-</div>
-            <div style="font-size:11px;color:var(--text3)" id="kakao-id">-</div>
-          </div>
-        </div>
-        <div style="font-size:11px;color:var(--green);margin-bottom:10px;padding:8px 12px;background:var(--green-dim);border-radius:8px;border:1px solid var(--green-border)">
-          ✅ 카카오 연동됨 — Firebase 동기화 활성화 시 이 계정으로 데이터가 분리 저장돼요
-        </div>
-        <button class="action-btn" onclick="kakaoLogout()">🚪 카카오 로그아웃</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="settings-section">
-    <div class="settings-title">💾 데이터 백업 / 복원</div>
-    <div class="card">
-      <button class="action-btn" onclick="exportData()">📤 JSON으로 내보내기 (다운로드)</button>
-      <button class="action-btn" onclick="document.getElementById('import-file').click()">📥 JSON에서 가져오기 (업로드)</button>
-      <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)"/>
-      <div style="font-size:11px;color:var(--text4);margin-top:4px;line-height:1.5">※ 가져오기 시 현재 데이터가 덮어씌워집니다.</div>
-    </div>
-  </div>
-  <div class="settings-section">
-    <div class="settings-title">🔗 다른 사람과 공유</div>
+    <div class="settings-title">🔗 공유 코드</div>
     <div class="card">
       <div style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.6">공유 코드를 생성해서 다른 가족에게 전달하면, 같은 데이터를 불러올 수 있어요.</div>
       <button class="action-btn" onclick="generateShareCode()">🔑 공유 코드 생성</button>
@@ -481,25 +538,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
       </div>
     </div>
   </div>
-  <div class="settings-section">
-    <div class="settings-title">☁️ 클라우드 동기화 (Firebase)</div>
+  <!-- PWA 설치 -->
+  <div class="settings-section" id="pwa-install-section" style="display:none">
+    <div class="settings-title">📱 앱 설치</div>
     <div class="card">
-      <div style="font-size:12px;color:var(--text3);line-height:1.7;margin-bottom:10px">
-        실시간 자동 동기화를 원하면 Firebase를 연결하세요.<br>
-        <b style="color:var(--text)">설정 방법:</b><br>
-        1. <span style="color:var(--blue)">console.firebase.google.com</span> 에서 프로젝트 생성<br>
-        2. Firestore Database 활성화<br>
-        3. 아래에 Firebase 설정 값 입력
-      </div>
-      <div class="field"><label>Firebase API Key</label><input type="text" id="fb-apikey" placeholder="AIza..." oninput="saveFbConfig()"/></div>
-      <div class="field"><label>Project ID</label><input type="text" id="fb-projectid" placeholder="my-project-123" oninput="saveFbConfig()"/></div>
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border);margin-top:4px">
-        <div>
-          <div class="settings-item-label">Firebase 동기화</div>
-          <div class="settings-item-sub" id="fb-status">설정되지 않음</div>
-        </div>
-        <label class="sw"><input type="checkbox" id="fb-toggle" onchange="toggleFirebase(this.checked)"/><span class="sw-slider"></span></label>
-      </div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.6">홈 화면에 앱을 설치하면 더 편리하게 사용할 수 있어요!</div>
+      <button class="action-btn" onclick="installPWA()" style="background:var(--accent-dim);border-color:var(--accent-border);color:var(--accent);font-weight:700">📲 홈 화면에 추가</button>
     </div>
   </div>
   <div style="height:20px"></div>
@@ -512,6 +556,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   <button class="nav-btn" onclick="switchTab('income',this)"><span class="nav-icon">💵</span><span class="nav-label">수입</span></button>
   <button class="nav-btn" onclick="switchTab('expense',this)"><span class="nav-icon">💸</span><span class="nav-label">지출</span></button>
   <button class="nav-btn" onclick="switchTab('savings',this)"><span class="nav-icon">🏦</span><span class="nav-label">적금</span></button>
+  <button class="nav-btn" onclick="switchTab('deposit',this)"><span class="nav-icon">💎</span><span class="nav-label">예금</span></button>
   <button class="nav-btn" onclick="switchTab('loan',this)"><span class="nav-icon">🏛️</span><span class="nav-label">대출</span></button>
   <button class="nav-btn" onclick="switchTab('fixed',this)"><span class="nav-icon">📌</span><span class="nav-label">고정</span></button>
   <button class="nav-btn" onclick="switchTab('settings',this)"><span class="nav-icon">⚙️</span><span class="nav-label">설정</span></button>
@@ -613,13 +658,43 @@ function today(){const d=new Date();return `${d.getFullYear()}-${String(d.getMon
 
 // ── THEME ─────────────────────────────────────────────────────────────────────
 function setTheme(t){
-  document.body.classList.toggle('light-mode',t==='light');
+  document.body.classList.remove('light-mode','theme-mint','theme-lavender','theme-peach');
+  if(t!=='dark'){document.body.classList.add('light-mode');}
   document.getElementById('theme-dark').classList.toggle('active',t==='dark');
-  document.getElementById('theme-light').classList.toggle('active',t==='light');
+  document.getElementById('theme-light').classList.toggle('active',t!=='dark');
   document.getElementById('theme-color-meta').content=t==='dark'?'#0f172a':'#f1f5f9';
+  const ps=document.getElementById('pastel-theme-section');
+  if(ps)ps.style.display=t!=='dark'?'block':'none';
   lss('theme',t);
+  lss('pastel','');
+  updatePastelButtons('');
 }
-function loadTheme(){setTheme(ls('theme')||'dark');}
+function setPastelTheme(p){
+  document.body.classList.remove('light-mode','theme-mint','theme-lavender','theme-peach');
+  if(p==='light'){document.body.classList.add('light-mode');}
+  else{document.body.classList.add('light-mode','theme-'+p);}
+  document.getElementById('theme-color-meta').content='#f1f5f9';
+  document.getElementById('theme-dark').classList.remove('active');
+  document.getElementById('theme-light').classList.add('active');
+  lss('pastel',p);
+  updatePastelButtons(p);
+}
+function updatePastelButtons(p){
+  ['default','mint','lavender','peach'].forEach(id=>{
+    const btn=document.getElementById('pt-'+id);
+    if(!btn)return;
+    const active=(p===id)||(p===''&&id==='default')||(!p&&id==='default');
+    btn.style.boxShadow=active?'0 0 0 3px var(--accent)':'';
+    btn.style.transform=active?'scale(1.05)':'';
+  });
+}
+function loadTheme(){
+  const t=ls('theme')||'dark';
+  const p=ls('pastel')||'';
+  setTheme(t);
+  if(t!=='dark'&&p&&p!=='light'){setPastelTheme(p);}
+  else if(t!=='dark'){updatePastelButtons(p||'default');const ps=document.getElementById('pastel-theme-section');if(ps)ps.style.display='block';}
+}
 
 // ── DATE PICKER ───────────────────────────────────────────────────────────────
 function openDatePicker(){
@@ -679,14 +754,19 @@ function switchTab(id,btn){
 function renderAll(){
   updateMonthLabels();
   renderHome(); renderIncome(); renderExpense();
-  renderSavings(); renderLoans(); renderFixed(); renderSettings();
+  renderSavings(); renderDeposits(); renderLoans(); renderFixed(); renderSettings();
   if(homeView==='annual')renderAnnual();
 }
 
 function updateMonthLabels(){
-  [['i','year','month'],['e','year','month'],['s','year','month']].forEach(([p])=>{
+  ['i','e','s'].forEach(p=>{
     const ye=document.getElementById(p+'-year'),mo=document.getElementById(p+'-month');
-    if(ye)ye.textContent=curYear+'년'; if(mo)mo.textContent=MONTHS[curMonth-1];
+    if(ye)ye.textContent=curYear+'년';
+    if(mo){
+      if(mo.style.display==='flex'||mo.id==='i-month'||mo.id==='e-month')
+        mo.innerHTML=MONTHS[curMonth-1]+' <span style="font-size:11px;opacity:.6">▼</span>';
+      else mo.textContent=MONTHS[curMonth-1];
+    }
   });
   const hy=document.getElementById('h-year'),hm=document.getElementById('h-month');
   if(hy)hy.textContent=curYear+'년';
@@ -735,7 +815,14 @@ function getSavingCumulative(cfg,y,m){
   if(y<sy||(y===sy&&m<sm))return 0;
   let ty=y,tm=m;
   if(cfg.endDate){const[ey,em]=cfg.endDate.split('-').map(Number);if(y>ey||(y===ey&&m>em)){ty=ey;tm=em;}}
-  return Math.max(0,(ty-sy)*12+(tm-sm)+1)*num(cfg.monthlyAmount);
+  const base=Math.max(0,(ty-sy)*12+(tm-sm)+1)*num(cfg.monthlyAmount);
+  // 추가납입 합산 (해당 월 이하만)
+  const extras=(cfg.extras||[]).filter(e=>{
+    if(!e.date)return false;
+    const[ey2,em2]=e.date.split('-').map(Number);
+    return (ey2<y)||(ey2===y&&em2<=m);
+  }).reduce((a,e)=>a+num(e.amount),0);
+  return base+extras;
 }
 
 function renderHome(){
@@ -749,10 +836,19 @@ function renderHome(){
   const loans=getLoans();
   let totalLoan=0;
   loans.forEach(l=>{const sch=getLoanSchedule(l);const e=sch.find(e=>e.year===curYear&&e.month===curMonth);if(e)totalLoan+=e.payment;});
-  // 적금 이달 누적 (표시용, 잔여 계산에서 제외)
+  // 적금 이달 누적 (표시용)
   const totalSav=configs.reduce((a,cfg)=>a+getSavingCumulative(cfg,curYear,curMonth),0);
-  // 잔여 = 수입 - 지출 - 대출 - 고정
-  const bal=totalInc-totalExp-totalLoan-totalFixed;
+  // 이달 적금 납입액 (월납입금 기준)
+  const monthSavPay=configs.reduce((a,cfg)=>{
+    if(!cfg.startDate)return a;
+    const[sy,sm]=cfg.startDate.split('-').map(Number);
+    let active=true;
+    if(curYear<sy||(curYear===sy&&curMonth<sm))active=false;
+    if(cfg.endDate){const[ey,em]=cfg.endDate.split('-').map(Number);if(curYear>ey||(curYear===ey&&curMonth>em))active=false;}
+    return a+(active?num(cfg.monthlyAmount):0);
+  },0);
+  // 잔여 = 수입 - 지출 - 대출 - 고정 - 적금납입
+  const bal=totalInc-totalExp-totalLoan-totalFixed-monthSavPay;
 
   const balEl=document.getElementById('h-balance');
   balEl.textContent=(bal>=0?'+':'')+fmt(bal);
@@ -764,6 +860,22 @@ function renderHome(){
   document.getElementById('h-loan').textContent=fmt(totalLoan);
   document.getElementById('h-fixed').textContent=fmt(totalFixed);
   document.getElementById('h-sav').textContent=fmt(totalSav);
+
+  // 자산총액 = 적금 누적 + 예금 원금
+  const configs_=ls('saving-configs')||getDefaultSavingConfigs();
+  const savTotal=configs_.reduce((a,cfg)=>a+getSavingCumulative(cfg,curYear,curMonth),0);
+  const deps=ls('deposit-configs')||[];
+  const depTotal=deps.reduce((a,d)=>a+num(d.principal),0);
+  const assetTotal=savTotal+depTotal;
+  document.getElementById('h-asset-total').textContent=fmt(assetTotal);
+  const breakdown=[];
+  if(savTotal>0)breakdown.push({label:'🏦 적금',val:savTotal,color:'#4ade80'});
+  if(depTotal>0)breakdown.push({label:'💎 예금',val:depTotal,color:'#93c5fd'});
+  document.getElementById('h-asset-breakdown').innerHTML=breakdown.map(b=>
+    '<div style="background:rgba(52,211,153,0.1);border:1px solid var(--green-border);border-radius:8px;padding:6px 10px">'+
+    '<div style="font-size:9px;color:'+b.color+'">'+b.label+'</div>'+
+    '<div style="font-size:12px;font-weight:700;color:'+b.color+'">'+fmt(b.val)+'</div></div>'
+  ).join('');
 
   // 지출 분류
   const catSec=document.getElementById('h-cats-section'),catEl=document.getElementById('h-cats');
@@ -789,12 +901,17 @@ function renderHome(){
       const cumul=getSavingCumulative(cfg,curYear,curMonth);
       const goal=num(cfg.goal);const pct=goal?Math.min(100,cumul/goal*100):0;
       const endLabel=cfg.endDate?` ~ ${cfg.endDate}`:'';
+      const si=calcSavingInterest(cfg);
+      const taxR=numf(cfg.taxRate||15.4)/100;
+      const afterTax=si>0?Math.round(si*(1-taxR)):0;
+      const total=cumul+afterTax;
       return `<div class="saving-item">
         <div class="saving-header">
           <span style="color:var(--text);font-weight:600;font-size:13px">${cfg.name}</span>
           <span style="color:var(--accent);font-weight:700;font-size:13px">${fmt(cumul)}</span>
         </div>
-        <div style="font-size:10px;color:var(--text3);margin-bottom:4px">월 ${fmt(cfg.monthlyAmount)} · 시작 ${cfg.startDate||'-'}${endLabel}</div>
+        <div style="font-size:10px;color:var(--text3);margin-bottom:4px">월 ${fmt(cfg.monthlyAmount)} · ${cfg.rate?cfg.rate+'%':'금리미입력'} · 시작 ${cfg.startDate||'-'}${endLabel}</div>
+        ${si>0?`<div style="font-size:10px;color:var(--green);margin-bottom:4px">💰 세후 만기 수령액: <b>${fmt(total)}</b></div>`:''}
         <div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:linear-gradient(90deg,var(--accent),#f97316)"></div></div>
         ${goal?`<div style="font-size:10px;color:var(--text3);margin-top:2px;text-align:right">목표 ${fmt(goal)} · ${pct.toFixed(1)}%</div>`:''}
       </div>`;
@@ -806,6 +923,31 @@ function renderHome(){
     v:configs.reduce((a,cfg)=>a+getSavingCumulative(cfg,y,m),0), lbl
   }));
   drawMiniGraph('h-sav-graph','h-sav-graph-labels',savGraphData,'#f0c27f');
+
+  // 예금 현황
+  const depsSec=document.getElementById('h-deps-section');
+  const depsEl=document.getElementById('h-deps');
+  const deps_=ls('deposit-configs')||[];
+  if(deps_.length>0&&depsSec&&depsEl){
+    depsSec.style.display='block';
+    depsEl.innerHTML=deps_.map(d=>{
+      const si=calcDepositInterest(d);
+      const taxRate=numf(d.taxRate!=null?d.taxRate:15.4);
+      const tax=Math.round(si*taxRate/100);
+      const afterTax=si-tax;
+      const total=num(d.principal)+afterTax;
+      return '<div class="saving-item">'+
+        '<div class="saving-header">'+
+        '<span style="color:var(--text);font-weight:600;font-size:13px">'+d.name+'</span>'+
+        '<span style="color:#93c5fd;font-weight:700;font-size:13px">'+fmt(num(d.principal))+'</span>'+
+        '</div>'+
+        '<div style="font-size:10px;color:var(--text3);margin-bottom:4px">'+
+        (d.rate?d.rate+'% · ':'금리미입력 · ')+(d.startDate||'시작일미설정')+(d.endDate?' ~ '+d.endDate:'')+
+        '</div>'+
+        (si>0?'<div style="font-size:10px;color:var(--green);margin-bottom:4px">💰 세후 만기 수령액: <b>'+fmt(total)+'</b></div>':'')+
+        '</div>';
+    }).join('');
+  }else if(depsSec){depsSec.style.display='none';}
 
   // 대출 현황
   const loansSec=document.getElementById('h-loans-section'),loansEl=document.getElementById('h-loans');
@@ -909,6 +1051,60 @@ function renderAnnual(){
   balEl2.textContent=(bal>=0?'+':'')+fmt(bal);
   balEl2.style.color=bal>=0?'var(--green)':'var(--red)';
 
+  // 적금 연간 현황
+  const savConfigs=ls('saving-configs')||getDefaultSavingConfigs();
+  const annSavEl=document.getElementById('ann-sav-summary');
+  if(annSavEl){
+    let totalAnnSav=0;
+    const savDetails=savConfigs.map(cfg=>{
+      // 해당 연도 납입 총액 계산
+      let yearSav=0;
+      for(let m=1;m<=cutoff;m++){
+        const monthly=getSavingCumulative(cfg,annualYear,m)-getSavingCumulative(cfg,annualYear,m-1>0?m-1:0);
+        yearSav+=Math.max(0,monthly);
+      }
+      // 더 간단한 방법: 해당 연도에 납입한 달 수 * 월납입액
+      if(cfg.startDate){
+        const[sy,sm]=cfg.startDate.split('-').map(Number);
+        let ey=annualYear,em=cutoff;
+        if(cfg.endDate){const[a,b]=cfg.endDate.split('-').map(Number);if(a<annualYear||(a===annualYear&&b<cutoff)){ey=a;em=b;}}
+        const startM=(sy<annualYear)?1:(sy===annualYear?sm:13);
+        const endM=(ey>annualYear)?cutoff:(ey===annualYear?em:0);
+        const months=Math.max(0,endM-startM+1);
+        yearSav=months*num(cfg.monthlyAmount);
+      }
+      totalAnnSav+=yearSav;
+      return {name:cfg.name,yearSav,cumul:getSavingCumulative(cfg,annualYear,cutoff)};
+    });
+    const si_total=savConfigs.reduce((a,cfg)=>a+calcSavingInterest(cfg),0);
+    const tax_total=savConfigs.reduce((a,cfg)=>{
+      const si=calcSavingInterest(cfg);
+      return a+Math.round(si*numf(cfg.taxRate!=null?cfg.taxRate:15.4)/100);
+    },0);
+    const afterTax_total=si_total-tax_total;
+    const totalCumul=savConfigs.reduce((a,cfg)=>a+getSavingCumulative(cfg,annualYear,cutoff),0);
+    annSavEl.innerHTML=
+      '<div style="background:rgba(52,211,153,.08);border-radius:8px;padding:10px;border:1px solid var(--green-border)">'+
+      '<div style="font-size:10px;color:var(--text4);margin-bottom:3px">'+annualYear+'년 납입 총액</div>'+
+      '<div style="font-size:15px;font-weight:700;color:#34d399">'+fmt(totalAnnSav)+'</div></div>'+
+      '<div style="background:rgba(52,211,153,.08);border-radius:8px;padding:10px;border:1px solid var(--green-border)">'+
+      '<div style="font-size:10px;color:var(--text4);margin-bottom:3px">누적 원금 합계</div>'+
+      '<div style="font-size:15px;font-weight:700;color:#6ee7b7">'+fmt(totalCumul)+'</div></div>'+
+      (si_total>0?
+      '<div style="background:rgba(52,211,153,.08);border-radius:8px;padding:10px;border:1px solid var(--green-border)">'+
+      '<div style="font-size:10px;color:var(--text4);margin-bottom:3px">예상 세후 이자</div>'+
+      '<div style="font-size:15px;font-weight:700;color:#4ade80">+'+fmt(afterTax_total)+'</div></div>'+
+      '<div style="background:rgba(52,211,153,.08);border-radius:8px;padding:10px;border:1px solid var(--green-border)">'+
+      '<div style="font-size:10px;color:var(--text4);margin-bottom:3px">세후 만기 수령액</div>'+
+      '<div style="font-size:15px;font-weight:700;color:var(--green)">'+fmt(totalCumul+afterTax_total)+'</div></div>'
+      :'<div style="font-size:11px;color:var(--text4);grid-column:1/-1;padding:4px 0">※ 금리 입력 시 이자 예상액이 표시됩니다</div>')+
+      (savDetails.length>0?'<div style="grid-column:1/-1;margin-top:4px">'+savDetails.filter(d=>d.yearSav>0||d.cumul>0).map(d=>
+        '<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-top:1px solid var(--green-border)">'+
+        '<span style="color:#4ade80">'+d.name+'</span>'+
+        '<span style="color:var(--green);font-weight:600">'+fmt(d.cumul)+' 누적</span></div>'
+      ).join('')+'</div>':'');
+  }
+
   // 대출 연간 현황 + 수입대비 %
   const annLoanEl=document.getElementById('ann-loan-summary');
   if(loans.length>0){
@@ -993,11 +1189,96 @@ function renderIncome(){
   document.getElementById('i-extra').value=inc.extra||'';
   document.getElementById('i-extra-note').value=inc.extraNote||'';
   document.getElementById('i-total').textContent=fmt(num(inc.me)+num(inc.sp)+num(inc.extra));
+  renderSlipThumbs();
 }
 function saveIncome(){
   const inc={me:document.getElementById('i-me').value,meNote:document.getElementById('i-me-note').value,sp:document.getElementById('i-sp').value,spNote:document.getElementById('i-sp-note').value,extra:document.getElementById('i-extra').value,extraNote:document.getElementById('i-extra-note').value};
   lss('inc:'+mk(),inc);
   document.getElementById('i-total').textContent=fmt(num(inc.me)+num(inc.sp)+num(inc.extra));
+}
+
+// ── 급여명세서 이미지 ──────────────────────────────────────────────────────────
+function slipKey(type){return 'slip:'+mk()+':'+type;}
+
+function renderSlipThumbs(){
+  ['me','sp','extra'].forEach(function(type){
+    const wrap=document.getElementById('slip-'+type+'-wrap');
+    if(!wrap)return;
+    const data=ls(slipKey(type));
+    if(data){
+      const d=document.createElement('div');
+      d.style.cssText='position:relative;margin-bottom:10px';
+      const img=document.createElement('img');
+      img.src=data;
+      img.style.cssText='width:100%;max-height:160px;object-fit:cover;border-radius:10px;border:2px solid var(--green-border);cursor:pointer;display:block';
+      img.onclick=function(){viewSlip(type);};
+      const badge=document.createElement('div');
+      badge.style.cssText='position:absolute;bottom:6px;left:6px;background:rgba(0,0,0,.6);color:#fff;font-size:10px;padding:3px 8px;border-radius:6px';
+      badge.textContent='👆 탭하면 크게 보기';
+      d.appendChild(img);d.appendChild(badge);
+      wrap.innerHTML='';wrap.appendChild(d);
+    } else {
+      wrap.innerHTML='';
+    }
+  });
+}
+function handleSlipFile(type, input){
+  const file=input.files[0];
+  if(!file)return;
+  compressImage(file, 1200, 0.82).then(b64=>{
+    try{
+      lss(slipKey(type), b64);
+      renderSlipThumbs();
+      showToast('명세서 저장됐어요! ✓');
+    }catch(e){
+      showToast('저장 실패: 이미지가 너무 큽니다. 더 작은 파일을 사용해주세요.');
+    }
+  });
+  input.value='';
+}
+
+function compressImage(file, maxW, quality){
+  return new Promise(resolve=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        const scale=Math.min(1, maxW/img.width);
+        const w=Math.round(img.width*scale);
+        const h=Math.round(img.height*scale);
+        const canvas=document.createElement('canvas');
+        canvas.width=w; canvas.height=h;
+        const ctx=canvas.getContext('2d');
+        ctx.drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+let _viewingSlipType=null;
+function viewSlip(type){
+  const data=ls(slipKey(type));
+  if(!data)return;
+  _viewingSlipType=type;
+  const ov=document.getElementById('slip-viewer-overlay');
+  document.getElementById('slip-viewer-img').src=data;
+  document.getElementById('slip-viewer-del').onclick=()=>deleteSlip(type);
+  ov.style.display='flex';
+}
+function closeSlipViewer(){
+  document.getElementById('slip-viewer-overlay').style.display='none';
+  document.getElementById('slip-viewer-img').src='';
+  _viewingSlipType=null;
+}
+function deleteSlip(type){
+  if(!confirm('명세서를 삭제할까요?'))return;
+  localStorage.removeItem(slipKey(type));
+  closeSlipViewer();
+  renderSlipThumbs();
+  showToast('삭제됐어요');
 }
 
 // ── EXPENSE ───────────────────────────────────────────────────────────────────
@@ -1065,38 +1346,151 @@ function renderSavings(){
   document.getElementById('s-total').textContent=fmt(totalCumul);
   document.getElementById('s-list').innerHTML=configs.map((cfg,i)=>{
     const cumul=getSavingCumulative(cfg,curYear,curMonth);
-    const goal=num(cfg.goal);const pct=goal?Math.min(100,cumul/goal*100):0;
+    const goal=num(cfg.goal);
+    const pct=goal?Math.min(100,cumul/goal*100):0;
+    const si=calcSavingInterest(cfg);
+    const taxRate=numf(cfg.taxRate!=null?cfg.taxRate:15.4);
+    const tax=Math.round(si*taxRate/100);
+    const afterTax=si-tax;
+    const total=cumul+afterTax;
+    const oc=(field)=>`updSavingConfig(${i},'${field}',this.value)`;
+    const progH=goal?`<div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:linear-gradient(90deg,var(--accent),#f97316)"></div></div><div style="font-size:10px;color:var(--text3);margin-top:2px;text-align:right">${fmt(cumul)} / ${fmt(goal)} (${pct.toFixed(1)}%)</div>`:'';
+    const intH=si>0?`
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px"><span style="color:var(--text2)">세전 이자</span><span style="color:var(--blue)">+${fmt(si)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--text3)">이자소득세 (${taxRate.toFixed(1)}%)</span><span style="color:var(--red)">-${fmt(tax)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;padding-top:6px;border-top:2px solid var(--border2)"><span style="color:var(--text);font-weight:700">💰 세후 만기 수령액</span><span style="color:var(--green);font-weight:800">${fmt(total)}</span></div>`:'';
     return `<div style="background:var(--card);border-radius:14px;border:1px solid var(--border);padding:16px;margin-bottom:12px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-        <input class="inline-input" style="font-size:16px;font-weight:700;color:var(--accent);flex:1" value="${cfg.name}" placeholder="적금명" onchange="updSavingConfig(${i},'name',this.value)"/>
+        <input class="inline-input" style="font-size:16px;font-weight:700;color:var(--accent);flex:1" value="${cfg.name}" placeholder="적금명" onchange="${oc('name')}"/>
         <button class="icon-btn" onclick="delSavingConfig(${i})">🗑️</button>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <div><div style="font-size:10px;color:var(--text3);margin-bottom:4px">월 납입금액</div>
-          <input type="number" class="inline-input" style="color:var(--accent);font-weight:700;border-bottom:1px solid var(--border2);padding-bottom:2px" value="${cfg.monthlyAmount}" placeholder="0" onchange="updSavingConfig(${i},'monthlyAmount',this.value)"/></div>
+          <input type="number" class="inline-input" style="color:var(--accent);font-weight:700;border-bottom:1px solid var(--border2);padding-bottom:2px" value="${cfg.monthlyAmount}" placeholder="0" onchange="${oc('monthlyAmount')}"/></div>
+        <div><div style="font-size:10px;color:var(--text3);margin-bottom:4px">연이율 (%)</div>
+          <input type="number" class="inline-input" style="color:var(--blue);font-weight:700;border-bottom:1px solid var(--border2);padding-bottom:2px" value="${cfg.rate||''}" placeholder="3.5" step="0.01" onchange="${oc('rate')}"/></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
         <div><div style="font-size:10px;color:var(--text3);margin-bottom:4px">목표금액</div>
-          <input type="number" class="inline-input" style="border-bottom:1px solid var(--border2);padding-bottom:2px" value="${cfg.goal}" placeholder="22000000" onchange="updSavingConfig(${i},'goal',this.value)"/></div>
+          <input type="number" class="inline-input" style="border-bottom:1px solid var(--border2);padding-bottom:2px" value="${cfg.goal}" placeholder="22000000" onchange="${oc('goal')}"/></div>
+        <div><div style="font-size:10px;color:var(--text3);margin-bottom:4px">이자소득세율 (%)</div>
+          <input type="number" class="inline-input" style="color:var(--red);font-weight:700;border-bottom:1px solid var(--border2);padding-bottom:2px" value="${taxRate}" placeholder="15.4" step="0.1" onchange="${oc('taxRate')}"/></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
         <div><div style="font-size:10px;color:var(--text3);margin-bottom:4px">📅 시작월</div>
-          <input type="month" class="inline-input" style="border-bottom:1px solid var(--border2);padding-bottom:2px;color:var(--green)" value="${cfg.startDate||''}" onchange="updSavingConfig(${i},'startDate',this.value)"/></div>
+          <input type="month" class="inline-input" style="border-bottom:1px solid var(--border2);padding-bottom:2px;color:var(--green)" value="${cfg.startDate||''}" onchange="${oc('startDate')}"/></div>
         <div><div style="font-size:10px;color:var(--text3);margin-bottom:4px">🏁 종료월</div>
-          <input type="month" class="inline-input" style="border-bottom:1px solid var(--border2);padding-bottom:2px;color:var(--red)" value="${cfg.endDate||''}" onchange="updSavingConfig(${i},'endDate',this.value)"/></div>
+          <input type="month" class="inline-input" style="border-bottom:1px solid var(--border2);padding-bottom:2px;color:var(--red)" value="${cfg.endDate||''}" onchange="${oc('endDate')}"/></div>
       </div>
       <div style="background:var(--card2);border-radius:8px;padding:10px;border:1px solid var(--border);margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
-          <span style="color:var(--text2)">이달 누적금액</span>
-          <span style="color:var(--accent);font-weight:700">${fmt(cumul)}</span>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--text2)">납입 원금</span><span style="color:var(--accent);font-weight:700">${fmt(cumul)}</span></div>
+        ${intH}${progH}
+      </div>
+      <div style="border-top:1px solid var(--border2);padding-top:10px">
+        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:8px">➕ 추가납입 내역</div>
+        <div id="sav-extras-${i}">
+          ${(cfg.extras||[]).map((e,ei)=>`<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+            <input type="month" class="inline-input" style="border-bottom:1px solid var(--border2);color:var(--green);width:110px" value="${e.date||''}" onchange="updSavExtra(${i},${ei},'date',this.value)"/>
+            <input type="number" class="inline-input" style="border-bottom:1px solid var(--border2);color:var(--accent);flex:1" value="${e.amount||''}" placeholder="금액" onchange="updSavExtra(${i},${ei},'amount',this.value)"/>
+            <button class="icon-btn" onclick="delSavExtra(${i},${ei})" style="font-size:13px">🗑️</button>
+          </div>`).join('')}
         </div>
-        ${goal?`<div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:linear-gradient(90deg,var(--accent),#f97316)"></div></div>
-        <div style="font-size:10px;color:var(--text3);margin-top:2px;text-align:right">${fmt(cumul)} / ${fmt(goal)} (${pct.toFixed(1)}%)</div>`:''}
+        <button onclick="addSavExtra(${i})" style="font-size:12px;color:var(--blue);background:none;border:1px dashed var(--blue-border);border-radius:8px;padding:6px 12px;cursor:pointer;width:100%;font-family:'Noto Sans KR',sans-serif">+ 추가납입 추가</button>
       </div>
     </div>`;
   }).join('');
 }
 function updSavingConfig(i,k,v){const c=ls('saving-configs')||getDefaultSavingConfigs();c[i][k]=v;lss('saving-configs',c);renderSavings();renderHome();}
-function addSaving(){const c=ls('saving-configs')||getDefaultSavingConfigs();c.push({id:Date.now().toString(),name:'새 적금',monthlyAmount:'',goal:'',startDate:'',endDate:''});lss('saving-configs',c);renderSavings();}
+function addSaving(){const c=ls('saving-configs')||getDefaultSavingConfigs();c.push({id:Date.now().toString(),name:'새 적금',monthlyAmount:'',rate:'',goal:'',startDate:'',endDate:'',extras:[]});lss('saving-configs',c);renderSavings();}
 function delSavingConfig(i){if(!confirm('삭제할까요?'))return;const c=ls('saving-configs')||getDefaultSavingConfigs();c.splice(i,1);lss('saving-configs',c);renderSavings();renderHome();}
+function addSavExtra(i){const c=ls('saving-configs')||getDefaultSavingConfigs();if(!c[i].extras)c[i].extras=[];c[i].extras.push({date:'',amount:''});lss('saving-configs',c);renderSavings();}
+function updSavExtra(i,ei,k,v){const c=ls('saving-configs')||getDefaultSavingConfigs();if(!c[i].extras)c[i].extras=[];c[i].extras[ei][k]=v;lss('saving-configs',c);renderSavings();renderHome();}
+function delSavExtra(i,ei){const c=ls('saving-configs')||getDefaultSavingConfigs();c[i].extras.splice(ei,1);lss('saving-configs',c);renderSavings();renderHome();}
+
+// 적금 이자 계산 (복리 적립식) - 만기까지 전체 이자
+function calcSavingInterest(cfg){
+  const r=numf(cfg.rate)/100/12;
+  if(!r||!cfg.startDate)return 0;
+  const[sy,sm]=cfg.startDate.split('-').map(Number);
+  if(!cfg.endDate)return 0; // 종료월 없으면 계산 불가
+  const[ey,em]=cfg.endDate.split('-').map(Number);
+  const n=Math.max(0,(ey-sy)*12+(em-sm)+1);
+  if(!n)return 0;
+  const m=num(cfg.monthlyAmount);
+  const fv=r>0?m*((Math.pow(1+r,n)-1)/r):m*n;
+  const principal=m*n;
+  return Math.round(Math.max(0,fv-principal));
+}
+
+// ── DEPOSITS ──────────────────────────────────────────────────────────────────
+function calcDepositInterest(d){
+  const r=numf(d.rate)/100;
+  const p=num(d.principal);
+  if(!r||!p||!d.startDate||!d.endDate)return 0;
+  const[sy,sm]=d.startDate.split('-').map(Number);
+  const[ey,em]=d.endDate.split('-').map(Number);
+  const months=(ey-sy)*12+(em-sm);
+  if(months<=0)return 0;
+  // 단리 이자 (예금은 보통 단리)
+  return Math.round(p*r*months/12);
+}
+function renderDeposits(){
+  const deps=ls('deposit-configs')||[];
+  const total=deps.reduce((a,d)=>a+num(d.principal),0);
+  const el=document.getElementById('d-total');
+  if(el)el.textContent=fmt(total);
+  const listEl=document.getElementById('d-list');
+  if(!listEl)return;
+  if(deps.length===0){listEl.innerHTML='<div style="text-align:center;color:var(--text4);padding:40px 0;font-size:14px">등록된 예금이 없어요 💎<br><br><button class="add-btn" onclick="addDeposit()">+ 예금 추가</button></div>';return;}
+  listEl.innerHTML=deps.map((d,i)=>{
+    const si=calcDepositInterest(d);
+    const taxRate=numf(d.taxRate!=null?d.taxRate:15.4);
+    const tax=Math.round(si*taxRate/100);
+    const afterTax=si-tax;
+    const total=num(d.principal)+afterTax;
+    const pct=d.startDate&&d.endDate?(()=>{
+      const now=new Date();
+      const[sy,sm]=d.startDate.split('-').map(Number);
+      const[ey,em]=d.endDate.split('-').map(Number);
+      const start=new Date(sy,sm-1);const end=new Date(ey,em-1);
+      const elapsed=Math.max(0,(now-start)/(1000*60*60*24*30));
+      const total_m=(ey-sy)*12+(em-sm);
+      return total_m>0?Math.min(100,elapsed/total_m*100):0;
+    })():0;
+    const oc=(field)=>'updDeposit('+i+',\''+field+'\',this.value)';
+    const intH=si>0?
+      '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px"><span style="color:var(--text2)">세전 이자 (단리)</span><span style="color:var(--blue)">+'+fmt(si)+'</span></div>'+
+      '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--text3)">이자소득세 ('+taxRate.toFixed(1)+'%)</span><span style="color:var(--red)">-'+fmt(tax)+'</span></div>'+
+      '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;padding-top:6px;border-top:2px solid var(--border2)"><span style="color:var(--text);font-weight:700">💰 세후 만기 수령액</span><span style="color:var(--green);font-weight:800">'+fmt(total)+'</span></div>'
+      :'';
+    const progH=pct>0?'<div class="prog-bar"><div class="prog-fill" style="width:'+pct.toFixed(1)+'%;background:linear-gradient(90deg,#3b82f6,#93c5fd)"></div></div><div style="font-size:10px;color:var(--text3);margin-top:2px;text-align:right">만기까지 '+pct.toFixed(1)+'% 경과</div>':'';
+    return '<div style="background:var(--card);border-radius:14px;border:1px solid var(--blue-border);padding:16px;margin-bottom:12px">'+
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">'+
+      '<input class="inline-input" style="font-size:16px;font-weight:700;color:#93c5fd;flex:1" value="'+d.name+'" placeholder="예금명" onchange="'+oc('name')+'"/>'+
+      '<button class="icon-btn" onclick="delDeposit('+i+')">🗑️</button></div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+
+      '<div><div style="font-size:10px;color:var(--text3);margin-bottom:4px">원금 (원)</div>'+
+      '<input type="number" class="inline-input" style="color:#93c5fd;font-weight:700;border-bottom:1px solid var(--border2);padding-bottom:2px" value="'+d.principal+'" placeholder="0" onchange="'+oc('principal')+'"/></div>'+
+      '<div><div style="font-size:10px;color:var(--text3);margin-bottom:4px">연이율 (%)</div>'+
+      '<input type="number" class="inline-input" style="color:var(--blue);font-weight:700;border-bottom:1px solid var(--border2);padding-bottom:2px" value="'+(d.rate||'')+'" placeholder="3.5" step="0.01" onchange="'+oc('rate')+'"/></div></div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">'+
+      '<div><div style="font-size:10px;color:var(--text3);margin-bottom:4px">이자소득세율 (%)</div>'+
+      '<input type="number" class="inline-input" style="color:var(--red);font-weight:700;border-bottom:1px solid var(--border2);padding-bottom:2px" value="'+taxRate+'" placeholder="15.4" step="0.1" onchange="'+oc('taxRate')+'"/></div>'+
+      '<div><div style="font-size:10px;color:var(--text3);margin-bottom:4px">은행명 / 메모</div>'+
+      '<input class="inline-input" style="border-bottom:1px solid var(--border2);padding-bottom:2px" value="'+(d.bank||'')+'" placeholder="KB국민은행" onchange="'+oc('bank')+'"/></div></div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'+
+      '<div><div style="font-size:10px;color:var(--text3);margin-bottom:4px">📅 시작일</div>'+
+      '<input type="month" class="inline-input" style="border-bottom:1px solid var(--border2);padding-bottom:2px;color:var(--green)" value="'+(d.startDate||'')+'" onchange="'+oc('startDate')+'"/></div>'+
+      '<div><div style="font-size:10px;color:var(--text3);margin-bottom:4px">🏁 만기일</div>'+
+      '<input type="month" class="inline-input" style="border-bottom:1px solid var(--border2);padding-bottom:2px;color:var(--red)" value="'+(d.endDate||'')+'" onchange="'+oc('endDate')+'"/></div></div>'+
+      '<div style="background:var(--card2);border-radius:8px;padding:10px;border:1px solid var(--border);margin-bottom:4px">'+
+      '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--text2)">원금</span><span style="color:#93c5fd;font-weight:700">'+fmt(num(d.principal))+'</span></div>'+
+      intH+progH+'</div></div>';
+  }).join('');
+}
+function addDeposit(){const deps=ls('deposit-configs')||[];deps.push({id:Date.now().toString(),name:'새 예금',principal:'',rate:'',taxRate:15.4,bank:'',startDate:'',endDate:''});lss('deposit-configs',deps);renderDeposits();renderHome();}
+function updDeposit(i,k,v){const deps=ls('deposit-configs')||[];deps[i][k]=v;lss('deposit-configs',deps);renderDeposits();renderHome();}
+function delDeposit(i){if(!confirm('삭제할까요?'))return;const deps=ls('deposit-configs')||[];deps.splice(i,1);lss('deposit-configs',deps);renderDeposits();renderHome();}
 
 // ── LOANS ─────────────────────────────────────────────────────────────────────
 function getLoans(){return ls('loans')||[];}
@@ -1105,15 +1499,25 @@ function getLoanSchedule(loan){
   const startY=parseInt(loan.startYear||new Date().getFullYear()),startM=parseInt(loan.startMonth||1);
   if(!P||!n)return[];
   const manualM=loan.manualMonthly?num(loan.manualMonthly):0;
-  const M=manualM>0?manualM:(r>0?Math.round(P*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1)):Math.round(P/n));
   let balance=P;const schedule=[];
+  const prepayments=(loan.prepayments||[]).slice().sort((a,b)=>a.date>b.date?1:-1);
   for(let i=0;i<n;i++){
+    const d=new Date(startY,startM-1+i);
+    const yr=d.getFullYear(),mo=d.getMonth()+1;
+    // 중도상환 반영
+    prepayments.forEach(pp=>{
+      if(!pp.date)return;
+      const[py,pm]=pp.date.split('-').map(Number);
+      if(py===yr&&pm===mo){balance=Math.max(0,balance-num(pp.amount));}
+    });
+    if(balance<=0)break;
+    const remain=n-i;
+    const M=manualM>0?manualM:(r>0?Math.round(balance*r*Math.pow(1+r,remain)/(Math.pow(1+r,remain)-1)):Math.round(balance/remain));
     const interest=Math.round(balance*r);
     const principal=Math.min(M-interest,balance);
     const actualPrin=Math.max(0,principal);
     balance=Math.max(0,balance-actualPrin);
-    const d=new Date(startY,startM-1+i);
-    schedule.push({round:i+1,year:d.getFullYear(),month:d.getMonth()+1,payment:actualPrin+interest,interest,principal:actualPrin,balance});
+    schedule.push({round:i+1,year:yr,month:mo,payment:actualPrin+interest,interest,principal:actualPrin,balance});
     if(balance===0)break;
   }
   return schedule;
@@ -1171,6 +1575,18 @@ function renderLoans(){
           ${[['납입액',fmt(curEntry.payment),'#f87171'],['원금',fmt(curEntry.principal),'#60a5fa'],['이자',fmt(curEntry.interest),'#fca5a5'],['납입 후 잔액',fmt(curEntry.balance),'#93c5fd']].map(([k,v,c])=>
             `<div style="flex:1;text-align:center"><div style="font-size:9px;color:var(--text4);margin-bottom:3px">${k}</div><div style="font-size:13px;font-weight:700;color:${c}">${v}</div></div>`).join('')}
         </div></div>`:''}
+      <div style="border-top:1px solid var(--border2);padding-top:10px;margin-bottom:8px">
+        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:8px">🔄 중도상환 내역</div>
+        <div id="loan-prep-${idx}">
+          ${(l.prepayments||[]).map((pp,pi)=>`<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+            <input type="month" class="inline-input" style="border-bottom:1px solid var(--border2);color:var(--green);width:110px" value="${pp.date||''}" onchange="updLoanPrepay(${idx},${pi},'date',this.value)"/>
+            <input type="number" class="inline-input" style="border-bottom:1px solid var(--border2);color:var(--accent);flex:1" value="${pp.amount||''}" placeholder="상환금액" onchange="updLoanPrepay(${idx},${pi},'amount',this.value)"/>
+            <input type="number" class="inline-input" style="border-bottom:1px solid var(--border2);color:var(--red);width:80px" value="${pp.fee||''}" placeholder="수수료" onchange="updLoanPrepay(${idx},${pi},'fee',this.value)"/>
+            <button class="icon-btn" onclick="delLoanPrepay(${idx},${pi})" style="font-size:13px">🗑️</button>
+          </div>`).join('')}
+        </div>
+        <button onclick="addLoanPrepay(${idx})" style="font-size:12px;color:var(--blue);background:none;border:1px dashed var(--blue-border);border-radius:8px;padding:6px 12px;cursor:pointer;width:100%;font-family:'Noto Sans KR',sans-serif;margin-bottom:8px">+ 중도상환 추가</button>
+      </div>
       <span class="loan-detail-toggle" id="${tbtnId}" onclick="toggleLoanTable('${tableId}','${tbtnId}')">▼ 상환 스케줄 보기</span>
       <div id="${tableId}" style="display:none;margin-top:8px;overflow-x:auto">
         <table class="loan-table"><thead><tr><th style="text-align:left">차수/날짜</th><th>납입액</th><th>원금</th><th>이자</th><th>잔액</th></tr></thead>
@@ -1180,6 +1596,9 @@ function renderLoans(){
     </div>`;}).join('');
 }
 function toggleLoanTable(tblId,btnId){const tbl=document.getElementById(tblId),btn=document.getElementById(btnId);if(!tbl)return;const open=tbl.style.display!=='none';tbl.style.display=open?'none':'block';btn.textContent=open?'▼ 상환 스케줄 보기':'▲ 스케줄 닫기';}
+function addLoanPrepay(idx){const loans=getLoans();if(!loans[idx].prepayments)loans[idx].prepayments=[];loans[idx].prepayments.push({date:'',amount:'',fee:''});lss('loans',loans);renderLoans();renderHome();}
+function updLoanPrepay(idx,pi,k,v){const loans=getLoans();if(!loans[idx].prepayments)loans[idx].prepayments=[];loans[idx].prepayments[pi][k]=v;lss('loans',loans);renderLoans();renderHome();}
+function delLoanPrepay(idx,pi){const loans=getLoans();loans[idx].prepayments.splice(pi,1);lss('loans',loans);renderLoans();renderHome();}
 function openLoanModal(idx){
   editLoanId=(idx!==undefined)?idx:null;
   document.getElementById('loan-modal-title').textContent=(idx!==undefined)?'대출 수정':'대출 추가';
@@ -1230,7 +1649,16 @@ function setFixedGroup(i,g){
 
 function renderFixed(){
   const fixed=ls('budget:fixed')||getDefaultFixed();
+  // 자동이체일 지난 항목 자동체크
+  const todayDay=new Date().getDate();
+  const todayYM=mk();
   const checks=getChecks();
+  fixed.forEach(f=>{
+    if(f.autoDay&&parseInt(f.autoDay)<=todayDay&&!checks[f.id]){
+      checks[f.id]=true;
+    }
+  });
+  lss('fx-check:'+todayYM,checks);
   const totalM=fixed.reduce((a,f)=>a+num(f.amount),0);
   document.getElementById('fx-monthly-total').textContent=fmt(totalM);
 
@@ -1289,12 +1717,18 @@ function renderFixed(){
           <input class="inline-input" style="font-size:14px;font-weight:${checked?600:500};color:${nameColor};width:100%;margin-bottom:4px;${checked?'text-decoration:line-through;':''}"
             value="${f.name}" placeholder="항목명" onchange="updFixed(${i},'name',this.value)"/>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <input type="number" class="inline-input" style="color:${amtColor};width:100px;border-bottom:1px solid var(--border2);font-weight:600"
+            <input type="number" class="inline-input" style="color:${amtColor};width:90px;border-bottom:1px solid var(--border2);font-weight:600"
               value="${f.amount}" placeholder="월 금액" onchange="updFixed(${i},'amount',this.value)"/>
-            <input class="inline-input" style="flex:1;min-width:60px;border-bottom:1px solid var(--border2);color:${noteColor}"
+            <input class="inline-input" style="flex:1;min-width:50px;border-bottom:1px solid var(--border2);color:${noteColor}"
               value="${f.note}" placeholder="메모" onchange="updFixed(${i},'note',this.value)"/>
-            <input class="inline-input" style="width:70px;border-bottom:1px solid var(--purple-border);color:var(--purple);font-size:11px"
+            <input class="inline-input" style="width:60px;border-bottom:1px solid var(--purple-border);color:var(--purple);font-size:11px"
               value="${f.group||''}" placeholder="그룹명" onchange="setFixedGroup(${i},this.value)"/>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:5px">
+            <span style="font-size:10px;color:var(--text4)">🗓 자동이체일:</span>
+            <input type="number" class="inline-input" style="width:40px;border-bottom:1px solid var(--border2);color:var(--blue);font-size:12px;font-weight:600"
+              value="${f.autoDay||''}" placeholder="일" min="1" max="31" onchange="updFixed(${i},'autoDay',this.value)"/>
+            <span style="font-size:10px;color:var(--text4)">일 (지나면 자동체크)</span>
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0">
@@ -1310,90 +1744,16 @@ function renderFixed(){
 }
 
 function updFixed(i,k,v){const f=ls('budget:fixed')||getDefaultFixed();f[i][k]=v;lss('budget:fixed',f);renderFixed();}
-function addFixed(){const f=ls('budget:fixed')||getDefaultFixed();f.push({id:Date.now().toString(),name:'',amount:'',note:'',group:f.length>0?(f[f.length-1].group||'기본'):'기본'});lss('budget:fixed',f);renderFixed();}
+function addFixed(){const f=ls('budget:fixed')||getDefaultFixed();f.push({id:Date.now().toString(),name:'',amount:'',note:'',group:f.length>0?(f[f.length-1].group||'기본'):'기본',autoDay:''});lss('budget:fixed',f);renderFixed();}
 function delFixed(i){if(!confirm('삭제할까요?'))return;const f=ls('budget:fixed')||getDefaultFixed();f.splice(i,1);lss('budget:fixed',f);renderFixed();}
 
 // ── SETTINGS ──────────────────────────────────────────────────────────────────
 function renderSettings(){
+  const p=ls('pastel')||'';
+  updatePastelButtons(p||'default');
   const t=ls('theme')||'dark';
-  document.getElementById('theme-dark').classList.toggle('active',t==='dark');
-  document.getElementById('theme-light').classList.toggle('active',t==='light');
-  const user=ls('mock-user');
-  document.getElementById('not-logged-in').style.display=user?'none':'block';
-  document.getElementById('logged-in').style.display=user?'block':'none';
-  if(user){document.getElementById('user-name').textContent=user.name;document.getElementById('user-email').textContent=user.email;document.getElementById('user-avatar').textContent=user.name[0]||'👤';}
-  const fb=ls('fb-config')||{};
-  document.getElementById('fb-apikey').value=fb.apiKey||'';
-  document.getElementById('fb-projectid').value=fb.projectId||'';
-  document.getElementById('fb-status').textContent=fb.enabled?'✅ 활성화됨':'설정되지 않음';
-  document.getElementById('fb-toggle').checked=!!fb.enabled;
-  // 카카오 앱키
-  const kk=ls('kakao-config')||{};
-  document.getElementById('kakao-appkey').value=kk.appKey||'';
-  const kkUser=ls('kakao-user');
-  document.getElementById('kakao-not-logged-in').style.display=kkUser?'none':'block';
-  document.getElementById('kakao-logged-in').style.display=kkUser?'block':'none';
-  if(kkUser){document.getElementById('kakao-name').textContent=kkUser.name||'카카오 사용자';document.getElementById('kakao-id').textContent='ID: '+kkUser.id;if(kkUser.thumb)document.getElementById('kakao-avatar').innerHTML=`<img src="${kkUser.thumb}" style="width:44px;height:44px;border-radius:50%;object-fit:cover">`;}
-}
-function mockGoogleLogin(){const name=prompt('이름을 입력해주세요:','홍길동');if(!name)return;const email=prompt('이메일 주소:','example@gmail.com');if(!email)return;lss('mock-user',{name,email});renderSettings();showToast('로그인됐어요! ✓');}
-function mockLogout(){lss('mock-user',null);renderSettings();showToast('로그아웃됐어요');}
-
-function saveKakaoKey(){
-  const kk=ls('kakao-config')||{};
-  kk.appKey=document.getElementById('kakao-appkey').value;
-  lss('kakao-config',kk);
-}
-
-function kakaoLogin(){
-  const kk=ls('kakao-config')||{};
-  if(!kk.appKey){alert('카카오 JavaScript 앱 키를 먼저 입력해주세요.\n\ndevelopers.kakao.com에서 앱을 등록한 후 앱 키를 입력해주세요.');return;}
-  if(typeof Kakao==='undefined'){
-    const s=document.createElement('script');
-    s.src='https://developers.kakaocdn.net/js/kakao.js';
-    s.onload=()=>{
-      try{
-        if(!Kakao.isInitialized())Kakao.init(kk.appKey);
-        Kakao.Auth.login({
-          success:function(authObj){
-            Kakao.API.request({url:'/v2/user/me',success:function(res){
-              const u={id:res.id,name:(res.kakao_account?.profile?.nickname||'카카오 사용자'),thumb:res.kakao_account?.profile?.thumbnail_image_url};
-              lss('kakao-user',u);renderSettings();showToast('카카오 로그인됐어요! ✓');
-            },fail:function(err){showToast('프로필 가져오기 실패');}});
-          },
-          fail:function(err){showToast('카카오 로그인 실패: '+JSON.stringify(err));}
-        });
-      }catch(e){showToast('앱 키를 확인해주세요');}
-    };
-    s.onerror=()=>showToast('카카오 SDK 로드 실패');
-    document.head.appendChild(s);
-  }else{
-    try{
-      if(!Kakao.isInitialized())Kakao.init(kk.appKey);
-      Kakao.Auth.login({
-        success:function(authObj){
-          Kakao.API.request({url:'/v2/user/me',success:function(res){
-            const u={id:res.id,name:(res.kakao_account?.profile?.nickname||'카카오 사용자'),thumb:res.kakao_account?.profile?.thumbnail_image_url};
-            lss('kakao-user',u);renderSettings();showToast('카카오 로그인됐어요! ✓');
-          },fail:()=>showToast('프로필 가져오기 실패')});
-        },
-        fail:(err)=>showToast('로그인 실패')
-      });
-    }catch(e){showToast('앱 키를 확인해주세요');}
-  }
-}
-function kakaoLogout(){
-  if(typeof Kakao!=='undefined'&&Kakao.Auth&&Kakao.Auth.getAccessToken()){
-    Kakao.Auth.logout(()=>{lss('kakao-user',null);renderSettings();showToast('카카오 로그아웃됐어요');});
-  }else{lss('kakao-user',null);renderSettings();showToast('로그아웃됐어요');}
-}
-
-function saveFbConfig(){const fb=ls('fb-config')||{};fb.apiKey=document.getElementById('fb-apikey').value;fb.projectId=document.getElementById('fb-projectid').value;lss('fb-config',fb);}
-function toggleFirebase(v){
-  const fb=ls('fb-config')||{};
-  if(v&&(!fb.apiKey||!fb.projectId)){alert('Firebase API Key와 Project ID를 먼저 입력해주세요');document.getElementById('fb-toggle').checked=false;return;}
-  fb.enabled=v;lss('fb-config',fb);
-  document.getElementById('fb-status').textContent=v?'✅ 활성화됨':'비활성화됨';
-  if(v)showToast('Firebase 설정 저장됐어요 ✓');
+  const ps=document.getElementById('pastel-theme-section');
+  if(ps)ps.style.display=t!=='dark'?'block':'none';
 }
 
 function exportData(){
@@ -1410,21 +1770,50 @@ function importData(e){
   reader.readAsText(file);e.target.value='';
 }
 function generateShareCode(){
-  const data={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);try{data[k]=JSON.parse(localStorage.getItem(k));}catch{data[k]=localStorage.getItem(k);}}
-  const code=btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+  // slip:(이미지) 제외, 핵심 데이터만 포함
+  const SKIP=['theme','pastel'];
+  const data={};
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(k.startsWith('slip:'))continue; // 이미지 제외 (용량 큰 원인)
+    if(SKIP.includes(k))continue;
+    try{data[k]=JSON.parse(localStorage.getItem(k));}catch{data[k]=localStorage.getItem(k);}
+  }
+  const json=JSON.stringify(data);
+  // LZString 압축 사용 (없으면 기존 방식 폴백)
+  const code=typeof LZString!=='undefined'
+    ? 'LZ1:'+LZString.compressToBase64(json)
+    : 'B64:'+btoa(unescape(encodeURIComponent(json)));
   document.getElementById('share-code-section').style.display='block';
   document.getElementById('share-code-display').textContent=code;
-  showToast('공유 코드 생성됐어요! ✓');
+  const len=code.length;
+  showToast('공유 코드 생성됐어요! ('+len+'자) ✓');
 }
 function copyShareCode(){
   const code=document.getElementById('share-code-display').textContent;
   navigator.clipboard.writeText(code).then(()=>showToast('코드 복사됐어요! ✓')).catch(()=>{const ta=document.createElement('textarea');ta.value=code;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);showToast('코드 복사됐어요! ✓');});
 }
 function importShareCode(){
-  const code=document.getElementById('import-code-input').value.trim();
-  if(!code){alert('공유 코드를 입력해주세요');return;}
-  try{const data=JSON.parse(decodeURIComponent(escape(atob(code))));if(!confirm('현재 데이터가 공유 데이터로 덮어씌워집니다. 계속할까요?'))return;localStorage.clear();Object.keys(data).forEach(k=>localStorage.setItem(k,JSON.stringify(data[k])));loadTheme();renderAll();showToast('공유 데이터를 불러왔어요! ✓');document.getElementById('import-code-input').value='';}
-  catch{alert('올바르지 않은 공유 코드예요.');}
+  const raw=document.getElementById('import-code-input').value.trim();
+  if(!raw){alert('공유 코드를 입력해주세요');return;}
+  try{
+    let json;
+    if(raw.startsWith('LZ1:')){
+      json=LZString.decompressFromBase64(raw.slice(4));
+    } else if(raw.startsWith('B64:')){
+      json=decodeURIComponent(escape(atob(raw.slice(4))));
+    } else {
+      // 구버전 코드 호환
+      json=decodeURIComponent(escape(atob(raw)));
+    }
+    const data=JSON.parse(json);
+    if(!confirm('현재 데이터가 공유 데이터로 덮어씌워집니다. 계속할까요?'))return;
+    localStorage.clear();
+    Object.keys(data).forEach(k=>localStorage.setItem(k,JSON.stringify(data[k])));
+    loadTheme();renderAll();
+    showToast('공유 데이터를 불러왔어요! ✓');
+    document.getElementById('import-code-input').value='';
+  }catch{alert('올바르지 않은 공유 코드예요.');}
 }
 
 // ── TOAST ─────────────────────────────────────────────────────────────────────
@@ -1433,6 +1822,41 @@ function showToast(msg){const t=document.getElementById('toast');t.textContent=m
 // ── INIT ──────────────────────────────────────────────────────────────────────
 loadTheme();
 renderAll();
+
+// ── 서비스워커 등록 ────────────────────────────────────────────────────────────
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./sw.js').then(reg=>{
+      console.log('SW registered');
+    }).catch(err=>{console.log('SW failed:',err);});
+  });
+}
+
+// ── PWA 설치 ──────────────────────────────────────────────────────────────────
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt',(e)=>{
+  e.preventDefault();
+  deferredPrompt=e;
+  const sec=document.getElementById('pwa-install-section');
+  if(sec)sec.style.display='block';
+});
+window.addEventListener('appinstalled',()=>{
+  deferredPrompt=null;
+  const sec=document.getElementById('pwa-install-section');
+  if(sec)sec.style.display='none';
+  showToast('앱이 설치됐어요! ✓');
+});
+function installPWA(){
+  if(!deferredPrompt){
+    showToast('이미 설치됐거나, 브라우저 메뉴 → "홈 화면에 추가"를 이용해주세요');
+    return;
+  }
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(r=>{
+    if(r.outcome==='accepted')showToast('설치가 시작됐어요! ✓');
+    deferredPrompt=null;
+  });
+}
 </script>
 </body>
 </html>
