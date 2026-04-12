@@ -843,16 +843,22 @@ function renderHome(){
   loans.forEach(l=>{const sch=getLoanSchedule(l);const e=sch.find(e=>e.year===curYear&&e.month===curMonth);if(e)totalLoan+=e.payment;});
   // 적금 이달 누적 (표시용)
   const totalSav=configs.reduce((a,cfg)=>a+getSavingCumulative(cfg,curYear,curMonth),0);
-  // 이달 적금 납입액 (월납입금 기준)
+  // 이달 적금 납입액 (월납입금 + 이달 추가납입 포함)
   const monthSavPay=configs.reduce((a,cfg)=>{
     if(!cfg.startDate)return a;
     const[sy,sm]=cfg.startDate.split('-').map(Number);
     let active=true;
     if(curYear<sy||(curYear===sy&&curMonth<sm))active=false;
     if(cfg.endDate){const[ey,em]=cfg.endDate.split('-').map(Number);if(curYear>ey||(curYear===ey&&curMonth>em))active=false;}
-    return a+(active?num(cfg.monthlyAmount):0);
+    // 이달 추가납입
+    const extraThisMonth=(cfg.extras||[]).filter(e=>{
+      if(!e.date)return false;
+      const[ey2,em2]=e.date.split('-').map(Number);
+      return ey2===curYear&&em2===curMonth;
+    }).reduce((s,e)=>s+num(e.amount),0);
+    return a+(active?num(cfg.monthlyAmount):0)+extraThisMonth;
   },0);
-  // 잔여 = 수입 - 지출 - 대출 - 고정 - 적금납입
+  // 잔여 = 수입 - 지출 - 대출 - 고정 - 적금납입(월+추가)
   const bal=totalInc-totalExp-totalLoan-totalFixed-monthSavPay;
 
   const balEl=document.getElementById('h-balance');
