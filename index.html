@@ -423,11 +423,16 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 <!-- ══ SAVINGS ════════════════════════════════════════════════════════════════ -->
 <div id="page-savings" class="page">
   <div class="top-bar"><span class="page-title">🏦 적금 관리</span><button class="add-btn" onclick="addSaving()">+ 추가</button></div>
-  <div style="margin:0 16px">
-    <div style="background:linear-gradient(135deg,#1a120b,#3d2100);border:1px solid #92400e;border-radius:14px;padding:16px">
-      <div style="font-size:11px;color:#fcd34d;margin-bottom:4px">이달 총 누적 적금</div>
-      <div style="font-size:26px;font-weight:900;color:var(--accent)" id="s-total">0원</div>
-      <div style="font-size:10px;color:var(--text3);margin-top:4px">※ 항목 수정 시 모든 월에 자동 반영됩니다</div>
+  <div style="margin:0 16px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div style="background:linear-gradient(135deg,#0d2010,#1a3a20);border:1px solid var(--green-border);border-radius:14px;padding:14px">
+      <div style="font-size:10px;color:#4ade80;margin-bottom:4px;font-weight:600">💸 이번달 납입 합계</div>
+      <div style="font-size:22px;font-weight:900;color:var(--green)" id="s-month-pay">0원</div>
+      <div style="font-size:9px;color:var(--text3);margin-top:4px">이달 실제 납입액</div>
+    </div>
+    <div style="background:linear-gradient(135deg,#1a120b,#3d2100);border:1px solid #92400e;border-radius:14px;padding:14px">
+      <div style="font-size:10px;color:#fcd34d;margin-bottom:4px;font-weight:600">🏦 이달 총 누적 적금</div>
+      <div style="font-size:22px;font-weight:900;color:var(--accent)" id="s-total">0원</div>
+      <div style="font-size:9px;color:var(--text3);margin-top:4px">시작일부터 누적 합계</div>
     </div>
   </div>
   <div style="padding:0 16px;margin-top:14px" id="s-list"></div>
@@ -859,7 +864,7 @@ function renderHome(){
   document.getElementById('h-exp').textContent=fmt(totalExp);
   document.getElementById('h-loan').textContent=fmt(totalLoan);
   document.getElementById('h-fixed').textContent=fmt(totalFixed);
-  document.getElementById('h-sav').textContent=fmt(totalSav);
+  document.getElementById('h-sav').textContent=fmt(monthSavPay);
 
   // 자산총액 = 적금 누적 + 예금 원금
   const configs_=ls('saving-configs')||getDefaultSavingConfigs();
@@ -1344,6 +1349,24 @@ function renderSavings(){
   const configs=ls('saving-configs')||getDefaultSavingConfigs();
   const totalCumul=configs.reduce((a,cfg)=>a+getSavingCumulative(cfg,curYear,curMonth),0);
   document.getElementById('s-total').textContent=fmt(totalCumul);
+  // 이번달 납입 합계 계산
+  const monthPay=configs.reduce((a,cfg)=>{
+    if(!cfg.startDate)return a;
+    const[sy,sm]=cfg.startDate.split('-').map(Number);
+    let active=true;
+    if(curYear<sy||(curYear===sy&&curMonth<sm))active=false;
+    if(cfg.endDate){const[ey,em]=cfg.endDate.split('-').map(Number);if(curYear>ey||(curYear===ey&&curMonth>em))active=false;}
+    if(!active)return a;
+    // 이번달 추가납입 포함
+    const extras=(cfg.extras||[]).filter(e=>{
+      if(!e.date)return false;
+      const[ey2,em2]=e.date.split('-').map(Number);
+      return ey2===curYear&&em2===curMonth;
+    }).reduce((s,e)=>s+num(e.amount),0);
+    return a+num(cfg.monthlyAmount)+extras;
+  },0);
+  const mpEl=document.getElementById('s-month-pay');
+  if(mpEl)mpEl.textContent=fmt(monthPay);
   document.getElementById('s-list').innerHTML=configs.map((cfg,i)=>{
     const cumul=getSavingCumulative(cfg,curYear,curMonth);
     const goal=num(cfg.goal);
