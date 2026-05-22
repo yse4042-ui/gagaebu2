@@ -490,6 +490,139 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   <div style="padding:0 16px" id="fx-list"></div>
 </div>
 
+<!-- ══ INVEST ═══════════════════════════════════════════════════════════════ -->
+<div id="page-invest" class="page">
+  <div class="top-bar"><span class="page-title">📈 투자 시뮬레이션</span></div>
+
+  <!-- 히어로 -->
+  <div style="margin:0 16px 14px;background:linear-gradient(135deg,#0d1b3e,#1a2f5e);border:1px solid #1e3a6e;border-radius:16px;padding:16px">
+    <div style="font-size:10px;color:#60a5fa;font-weight:600;letter-spacing:.08em;margin-bottom:5px">📈 시뮬레이션 결과</div>
+    <div style="font-size:28px;font-weight:900;color:#93c5fd;line-height:1" id="iv-hero-total">0원</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px">
+      <div style="background:rgba(255,255,255,.05);border-radius:8px;padding:8px">
+        <div style="font-size:9px;color:#64748b;margin-bottom:2px">💰 투자 원금</div>
+        <div style="font-size:13px;font-weight:700;color:#60a5fa" id="iv-h-principal">0원</div>
+      </div>
+      <div style="background:rgba(255,255,255,.05);border-radius:8px;padding:8px">
+        <div style="font-size:9px;color:#64748b;margin-bottom:2px">📈 투자 수익</div>
+        <div style="font-size:13px;font-weight:700;color:#22c55e" id="iv-h-profit">+0원</div>
+      </div>
+      <div style="background:rgba(255,255,255,.05);border-radius:8px;padding:8px">
+        <div style="font-size:9px;color:#64748b;margin-bottom:2px">✨ 수익률</div>
+        <div style="font-size:13px;font-weight:700;color:#f59e0b" id="iv-h-rate">0%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 지수 선택 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 16px 12px">
+    <div id="iv-btn-sp" onclick="ivSelectIndex('sp')" style="border:1.5px solid #3b82f6;background:rgba(59,130,246,.1);border-radius:12px;padding:12px;cursor:pointer">
+      <div style="font-size:13px;font-weight:700;color:#60a5fa;margin-bottom:2px">🇺🇸 S&P 500</div>
+      <div style="font-size:11px;color:#22c55e">연평균 수익률 10.5%</div>
+      <div style="font-size:10px;color:#475569;margin-top:2px">미국 500대 기업</div>
+    </div>
+    <div id="iv-btn-nq" onclick="ivSelectIndex('nq')" style="border:1.5px solid #1e293b;background:#0f172a;border-radius:12px;padding:12px;cursor:pointer">
+      <div style="font-size:13px;font-weight:700;color:#a78bfa;margin-bottom:2px">💻 나스닥 100</div>
+      <div style="font-size:11px;color:#22c55e">연평균 수익률 14.2%</div>
+      <div style="font-size:10px;color:#475569;margin-top:2px">기술주 100종목</div>
+    </div>
+  </div>
+
+  <!-- 비교 모드 -->
+  <div style="display:flex;gap:6px;margin:0 16px 12px">
+    <button id="iv-mode-single" onclick="ivSetMode('single')" style="flex:1;padding:8px;border:1px solid #3b82f6;background:rgba(59,130,246,.15);color:#93c5fd;border-radius:10px;font-size:11px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;font-weight:500">단일 지수</button>
+    <button id="iv-mode-compare" onclick="ivSetMode('compare')" style="flex:1;padding:8px;border:1px solid #1e293b;background:#111827;color:#94a3b8;border-radius:10px;font-size:11px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;font-weight:500">S&P vs 나스닥</button>
+    <button id="iv-mode-deposit" onclick="ivSetMode('deposit')" style="flex:1;padding:8px;border:1px solid #1e293b;background:#111827;color:#94a3b8;border-radius:10px;font-size:11px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;font-weight:500">예금 비교</button>
+  </div>
+
+  <!-- 슬라이더들 -->
+  <div style="margin:0 16px">
+    <div style="background:#111827;border:1px solid #1e293b;border-radius:12px;padding:12px;margin-bottom:8px">
+      <div style="font-size:10px;color:#64748b;margin-bottom:6px;font-weight:600">💵 월 투자금액</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="range" id="iv-monthly" min="10" max="200" value="50" step="10" oninput="ivCalc()" style="flex:1;accent-color:#3b82f6"/>
+        <span style="font-size:14px;font-weight:700;color:#93c5fd;min-width:55px;text-align:right" id="iv-sv-monthly">50만원</span>
+      </div>
+    </div>
+    <div style="background:#111827;border:1px solid #1e293b;border-radius:12px;padding:12px;margin-bottom:8px">
+      <div style="font-size:10px;color:#64748b;margin-bottom:6px;font-weight:600">📅 투자 기간</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="range" id="iv-years" min="1" max="40" value="20" step="1" oninput="ivCalc()" style="flex:1;accent-color:#3b82f6"/>
+        <span style="font-size:14px;font-weight:700;color:#93c5fd;min-width:55px;text-align:right" id="iv-sv-years">20년</span>
+      </div>
+    </div>
+    <div style="background:#111827;border:1px solid #1e293b;border-radius:12px;padding:12px;margin-bottom:8px">
+      <div style="font-size:10px;color:#64748b;margin-bottom:6px;font-weight:600">📊 예상 연수익률</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="range" id="iv-rate" min="1" max="25" value="10.5" step="0.5" oninput="ivCalc()" style="flex:1;accent-color:#3b82f6"/>
+        <span style="font-size:14px;font-weight:700;color:#93c5fd;min-width:55px;text-align:right" id="iv-sv-rate">10.5%</span>
+      </div>
+    </div>
+
+    <!-- 물가상승률 -->
+    <div style="background:#111827;border:1px solid #1e293b;border-radius:12px;padding:12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0" id="iv-inf-header">
+        <div style="font-size:10px;color:#64748b;font-weight:600">🏦 물가상승률 반영</div>
+        <div id="iv-inf-toggle" onclick="ivToggleInflation()" style="width:34px;height:18px;background:#1e293b;border-radius:9px;position:relative;cursor:pointer;transition:background .2s">
+          <div id="iv-inf-thumb" style="width:14px;height:14px;background:#fff;border-radius:50%;position:absolute;top:2px;left:2px;transition:left .2s"></div>
+        </div>
+      </div>
+      <div id="iv-inf-slider" style="display:none;margin-top:8px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="range" id="iv-inflation" min="0.5" max="6" value="2.5" step="0.5" oninput="ivCalc()" style="flex:1;accent-color:#f59e0b"/>
+          <span style="font-size:14px;font-weight:700;color:#f59e0b;min-width:40px;text-align:right" id="iv-sv-inflation">2.5%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 예금 금리 (예금 비교 모드) -->
+    <div id="iv-deposit-card" style="display:none;background:#111827;border:1px solid #1e293b;border-radius:12px;padding:12px;margin-bottom:8px">
+      <div style="font-size:10px;color:#64748b;margin-bottom:6px;font-weight:600">🏦 예금 금리 (비교용)</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="range" id="iv-deposit-rate" min="0.5" max="8" value="3.5" step="0.1" oninput="ivCalc()" style="flex:1;accent-color:#f59e0b"/>
+        <span style="font-size:14px;font-weight:700;color:#f59e0b;min-width:40px;text-align:right" id="iv-sv-deposit">3.5%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 결과 그리드 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 16px">
+    <div style="background:#111827;border:1px solid #1e293b;border-radius:12px;padding:12px">
+      <div style="font-size:10px;color:#64748b;margin-bottom:4px">납입 원금 합계</div>
+      <div style="font-size:16px;font-weight:700;color:#60a5fa" id="iv-r-principal">0원</div>
+      <div style="font-size:10px;color:#64748b;margin-top:2px" id="iv-r-principal-sub">월 50만 × 20년</div>
+    </div>
+    <div style="background:#111827;border:1px solid #1e293b;border-radius:12px;padding:12px">
+      <div style="font-size:10px;color:#64748b;margin-bottom:4px">복리 수익</div>
+      <div style="font-size:16px;font-weight:700;color:#22c55e" id="iv-r-profit">+0원</div>
+      <div style="font-size:10px;color:#64748b;margin-top:2px" id="iv-r-profit-ratio">원금 대비 0%</div>
+    </div>
+    <div style="background:#111827;border:1px solid #1e293b;border-radius:12px;padding:12px">
+      <div style="font-size:10px;color:#64748b;margin-bottom:4px">최종 자산</div>
+      <div style="font-size:16px;font-weight:700;color:#f59e0b" id="iv-r-total">0원</div>
+      <div style="font-size:10px;color:#64748b;margin-top:2px" id="iv-r-real">실질가치 -</div>
+    </div>
+    <div style="background:#111827;border:1px solid #1e293b;border-radius:12px;padding:12px">
+      <div style="font-size:10px;color:#64748b;margin-bottom:4px">월 인출가능액 (4%룰)</div>
+      <div style="font-size:16px;font-weight:700;color:#e879f9" id="iv-r-withdrawal">0원</div>
+      <div style="font-size:10px;color:#64748b;margin-top:2px">연 4% 인출 기준</div>
+    </div>
+  </div>
+
+  <!-- 차트 -->
+  <div style="margin:0 16px;position:relative;height:220px;margin-bottom:12px">
+    <canvas id="iv-chart" role="img" aria-label="투자 복리 성장 차트">투자 시뮬레이션 차트</canvas>
+  </div>
+
+  <!-- 기간별 테이블 -->
+  <div style="margin:0 16px 20px;background:#111827;border:1px solid #1e293b;border-radius:12px;overflow:hidden">
+    <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;padding:10px 12px;background:#0f172a;font-size:11px;color:#64748b;font-weight:600">
+      <span>기간</span><span style="text-align:right">원금</span><span style="text-align:right">평가액</span><span style="text-align:right">수익률</span>
+    </div>
+    <div id="iv-table"></div>
+  </div>
+</div>
+
 <!-- ══ SETTINGS ════════════════════════════════════════════════════════════════ -->
 <div id="page-settings" class="page">
   <div class="top-bar"><span class="page-title">⚙️ 설정</span></div>
@@ -527,9 +660,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
     </div>
   </div>
   <div class="settings-section">
-    <div class="settings-title">🔗 공유 코드</div>
+    <div class="settings-title">🔗 공유 코드 (데이터)</div>
     <div class="card">
-      <div style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.6">공유 코드를 생성해서 다른 가족에게 전달하면, 같은 데이터를 불러올 수 있어요.</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.6">수입/지출/적금 등 모든 데이터를 공유해요.<br><span style="color:var(--text4)">※ 사진은 아래 별도 내보내기를 사용하세요.</span></div>
       <button class="action-btn" onclick="generateShareCode()">🔑 공유 코드 생성</button>
       <div class="share-code-box" id="share-code-section" style="display:none">
         <div style="font-size:12px;color:var(--text3)">아래 코드를 복사해서 전달하세요:</div>
@@ -540,6 +673,26 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
         <div style="font-size:12px;color:var(--text3);margin-bottom:8px">공유 코드 입력:</div>
         <div class="field" style="margin-bottom:8px"><input type="text" id="import-code-input" placeholder="공유 코드를 붙여넣기 하세요" style="font-size:12px"/></div>
         <button class="action-btn" style="margin-bottom:0" onclick="importShareCode()">📲 코드로 데이터 가져오기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 이미지 별도 공유 -->
+  <div class="settings-section">
+    <div class="settings-title">🖼️ 사진 공유 코드 (명세서)</div>
+    <div class="card">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.6">급여명세서 사진만 별도로 내보내고 가져와요.<br><span style="color:var(--text4)">※ 코드가 길 수 있어요. 카카오톡 파일전송 권장.</span></div>
+      <button class="action-btn" onclick="generateImageCode()">📸 사진 코드 생성</button>
+      <div class="share-code-box" id="img-code-section" style="display:none">
+        <div style="font-size:12px;color:var(--text3)">아래 코드를 복사해서 전달하세요:</div>
+        <div class="share-code-display" id="img-code-display" style="font-size:10px;word-break:break-all;max-height:80px;overflow:hidden"></div>
+        <div style="font-size:10px;color:var(--text4);margin-top:4px" id="img-code-size"></div>
+        <button class="action-btn" style="margin-top:8px;margin-bottom:0" onclick="copyImageCode()">📋 사진 코드 복사</button>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:8px">사진 코드 입력:</div>
+        <div class="field" style="margin-bottom:8px"><textarea id="import-img-input" placeholder="사진 코드를 붙여넣기 하세요" style="font-size:11px;height:60px;resize:none;width:100%;background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:8px;color:var(--text);font-family:'Noto Sans KR',sans-serif"></textarea></div>
+        <button class="action-btn" style="margin-bottom:0" onclick="importImageCode()">🖼️ 사진 가져오기</button>
       </div>
     </div>
   </div>
@@ -564,6 +717,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   <button class="nav-btn" onclick="switchTab('deposit',this)"><span class="nav-icon">💎</span><span class="nav-label">예금</span></button>
   <button class="nav-btn" onclick="switchTab('loan',this)"><span class="nav-icon">🏛️</span><span class="nav-label">대출</span></button>
   <button class="nav-btn" onclick="switchTab('fixed',this)"><span class="nav-icon">📌</span><span class="nav-label">고정</span></button>
+  <button class="nav-btn" onclick="switchTab('invest',this)"><span class="nav-icon">📈</span><span class="nav-label">투자</span></button>
   <button class="nav-btn" onclick="switchTab('settings',this)"><span class="nav-icon">⚙️</span><span class="nav-label">설정</span></button>
 </nav>
 </div>
@@ -859,7 +1013,7 @@ function renderHome(){
     return a+(active?num(cfg.monthlyAmount):0)+extraThisMonth;
   },0);
   // 잔여 = 수입 - 지출 - 대출 - 고정 - 적금납입(월+추가)
-  const bal=totalInc-totalExp-totalLoan-totalFixed-monthSavPay;
+  const bal=totalInc-totalExp-totalFixed-monthSavPay;
 
   const balEl=document.getElementById('h-balance');
   balEl.textContent=(bal>=0?'+':'')+fmt(bal);
@@ -1843,6 +1997,200 @@ function importShareCode(){
     showToast('공유 데이터를 불러왔어요! ✓');
     document.getElementById('import-code-input').value='';
   }catch{alert('올바르지 않은 공유 코드예요.');}
+}
+
+// ── INVEST ────────────────────────────────────────────────────────────────────
+let ivInflationOn=false;
+let ivMode='single';
+let ivIndex='sp';
+let ivChart=null;
+const IV_RATES={sp:10.5,nq:14.2};
+
+function ivFmt(n){
+  if(n>=100000000)return (n/100000000).toFixed(1)+'억원';
+  if(n>=10000)return Math.round(n/10000)+'만원';
+  return Math.round(n).toLocaleString()+'원';
+}
+function ivFmtS(n){
+  if(n>=100000000)return (n/100000000).toFixed(1)+'억';
+  if(n>=10000)return Math.round(n/10000)+'만';
+  return Math.round(n).toLocaleString();
+}
+function ivCalcGrowth(monthly,years,rate){
+  const mr=rate/100/12;const data=[];let val=0;
+  for(let m=1;m<=years*12;m++){val=val*(1+mr)+monthly*10000;if(m%12===0)data.push(Math.round(val));}
+  return data;
+}
+function ivSelectIndex(idx){
+  ivIndex=idx;
+  const spEl=document.getElementById('iv-btn-sp');
+  const nqEl=document.getElementById('iv-btn-nq');
+  if(spEl){spEl.style.border=idx==='sp'?'1.5px solid #3b82f6':'1.5px solid #1e293b';spEl.style.background=idx==='sp'?'rgba(59,130,246,.1)':'#0f172a';}
+  if(nqEl){nqEl.style.border=idx==='nq'?'1.5px solid #a78bfa':'1.5px solid #1e293b';nqEl.style.background=idx==='nq'?'rgba(167,139,250,.1)':'#0f172a';}
+  const r=IV_RATES[idx];
+  const sl=document.getElementById('iv-rate');
+  if(sl){sl.value=r;document.getElementById('iv-sv-rate').textContent=r+'%';}
+  ivCalc();
+}
+function ivSetMode(m){
+  ivMode=m;
+  ['single','compare','deposit'].forEach(id=>{
+    const btn=document.getElementById('iv-mode-'+id);
+    if(!btn)return;
+    const active=id===m;
+    btn.style.borderColor=active?'#3b82f6':'#1e293b';
+    btn.style.background=active?'rgba(59,130,246,.15)':'#111827';
+    btn.style.color=active?'#93c5fd':'#94a3b8';
+  });
+  const dc=document.getElementById('iv-deposit-card');
+  if(dc)dc.style.display=m==='deposit'?'block':'none';
+  ivCalc();
+}
+function ivToggleInflation(){
+  ivInflationOn=!ivInflationOn;
+  const tog=document.getElementById('iv-inf-toggle');
+  const thumb=document.getElementById('iv-inf-thumb');
+  const slider=document.getElementById('iv-inf-slider');
+  if(tog)tog.style.background=ivInflationOn?'#3b82f6':'#1e293b';
+  if(thumb)thumb.style.left=ivInflationOn?'18px':'2px';
+  if(slider)slider.style.display=ivInflationOn?'block':'none';
+  ivCalc();
+}
+function ivCalc(){
+  const monthly=parseInt(document.getElementById('iv-monthly')?.value||50);
+  const years=parseInt(document.getElementById('iv-years')?.value||20);
+  const rate=parseFloat(document.getElementById('iv-rate')?.value||10.5);
+  const infRate=parseFloat(document.getElementById('iv-inflation')?.value||2.5);
+  const depRate=parseFloat(document.getElementById('iv-deposit-rate')?.value||3.5);
+
+  const sv=id=>document.getElementById(id);
+  if(sv('iv-sv-monthly'))sv('iv-sv-monthly').textContent=monthly+'만원';
+  if(sv('iv-sv-years'))sv('iv-sv-years').textContent=years+'년';
+  if(sv('iv-sv-rate'))sv('iv-sv-rate').textContent=rate+'%';
+  if(sv('iv-sv-inflation'))sv('iv-sv-inflation').textContent=infRate+'%';
+  if(sv('iv-sv-deposit'))sv('iv-sv-deposit').textContent=depRate+'%';
+
+  const principal=monthly*12*years*10000;
+  const data=ivCalcGrowth(monthly,years,rate);
+  const total=data[data.length-1];
+  const profit=total-principal;
+  const profitRatio=Math.round(profit/principal*100);
+  const realVal=ivInflationOn?Math.round(total/Math.pow(1+infRate/100,years)):total;
+  const withdrawal=Math.round(total*0.04/12);
+
+  if(sv('iv-hero-total'))sv('iv-hero-total').textContent=ivFmt(total);
+  if(sv('iv-h-principal'))sv('iv-h-principal').textContent=ivFmt(principal);
+  if(sv('iv-h-profit'))sv('iv-h-profit').textContent='+'+ivFmt(profit);
+  if(sv('iv-h-rate'))sv('iv-h-rate').textContent=profitRatio+'%';
+  if(sv('iv-r-principal'))sv('iv-r-principal').textContent=ivFmt(principal);
+  if(sv('iv-r-principal-sub'))sv('iv-r-principal-sub').textContent='월 '+monthly+'만 × '+years+'년';
+  if(sv('iv-r-profit'))sv('iv-r-profit').textContent='+'+ivFmt(profit);
+  if(sv('iv-r-profit-ratio'))sv('iv-r-profit-ratio').textContent='원금 대비 +'+profitRatio+'%';
+  if(sv('iv-r-total'))sv('iv-r-total').textContent=ivFmt(total);
+  if(sv('iv-r-real'))sv('iv-r-real').textContent=ivInflationOn?'실질가치 '+ivFmt(realVal)+' ('+infRate+'%)':'실질가치 미반영';
+  if(sv('iv-r-withdrawal'))sv('iv-r-withdrawal').textContent=ivFmt(withdrawal)+'/월';
+
+  const canvas=document.getElementById('iv-chart');
+  if(!canvas)return;
+  const labels=Array.from({length:years},(_,i)=>i+1+'년');
+  const pData=Array.from({length:years},(_,i)=>Math.round(monthly*(i+1)*12*10000));
+  let datasets=[
+    {label:'납입 원금',data:pData,backgroundColor:'rgba(59,130,246,0.2)',borderColor:'#3b82f6',borderWidth:1.5,fill:true,tension:0.3,pointRadius:0},
+    {label:'평가액',data,backgroundColor:'rgba(34,197,94,0.12)',borderColor:'#22c55e',borderWidth:2,fill:true,tension:0.3,pointRadius:0}
+  ];
+  if(ivInflationOn){
+    const rData=data.map((v,i)=>Math.round(v/Math.pow(1+infRate/100,i+1)));
+    datasets.push({label:'실질가치',data:rData,borderColor:'#f59e0b',borderWidth:1.5,fill:false,tension:0.3,pointRadius:0,borderDash:[5,3]});
+  }
+  if(ivMode==='compare'){
+    datasets=[
+      {label:'납입 원금',data:pData,backgroundColor:'rgba(59,130,246,0.1)',borderColor:'#3b82f6',borderWidth:1,fill:true,tension:0.3,pointRadius:0,borderDash:[4,4]},
+      {label:'S&P 500 ('+IV_RATES.sp+'%)',data:ivCalcGrowth(monthly,years,IV_RATES.sp),borderColor:'#22c55e',borderWidth:2,fill:false,tension:0.3,pointRadius:0},
+      {label:'나스닥 100 ('+IV_RATES.nq+'%)',data:ivCalcGrowth(monthly,years,IV_RATES.nq),borderColor:'#a78bfa',borderWidth:2,fill:false,tension:0.3,pointRadius:0}
+    ];
+  } else if(ivMode==='deposit'){
+    datasets=[
+      {label:'납입 원금',data:pData,backgroundColor:'rgba(59,130,246,0.1)',borderColor:'#3b82f6',borderWidth:1,fill:true,tension:0.3,pointRadius:0,borderDash:[4,4]},
+      {label:(ivIndex==='sp'?'S&P 500':'나스닥')+' ('+rate+'%)',data,borderColor:'#22c55e',borderWidth:2,fill:false,tension:0.3,pointRadius:0},
+      {label:'예금 ('+depRate+'%)',data:ivCalcGrowth(monthly,years,depRate),borderColor:'#f59e0b',borderWidth:2,fill:false,tension:0.3,pointRadius:0}
+    ];
+  }
+  if(ivChart)ivChart.destroy();
+  if(typeof Chart!=='undefined'){
+    ivChart=new Chart(canvas,{
+      type:'line',data:{labels,datasets},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:true,position:'bottom',labels:{color:'#94a3b8',font:{size:10},boxWidth:10,padding:10}},
+          tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+ivFmt(ctx.parsed.y)}}},
+        scales:{
+          x:{ticks:{color:'#475569',font:{size:10},maxTicksLimit:8},grid:{color:'rgba(255,255,255,0.04)'},border:{display:false}},
+          y:{ticks:{color:'#475569',font:{size:10},callback:v=>ivFmtS(v)},grid:{color:'rgba(255,255,255,0.04)'},border:{display:false}}
+        },interaction:{mode:'index',intersect:false}}
+    });
+  }
+  const rows=[1,3,5,10,15,20,25,30].filter(y=>y<=years);
+  const tableEl=document.getElementById('iv-table');
+  if(tableEl)tableEl.innerHTML=rows.map(y=>{
+    const d=ivCalcGrowth(monthly,y,rate);
+    const tv=d[d.length-1];const pv=monthly*y*12*10000;
+    const rv=Math.round((tv-pv)/pv*100);
+    return '<div style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;padding:9px 12px;border-top:1px solid #1e293b;font-size:12px">'+
+      '<span style="color:#94a3b8">'+y+'년 후</span>'+
+      '<span style="text-align:right;color:#60a5fa">'+ivFmtS(pv)+'</span>'+
+      '<span style="text-align:right;color:#22c55e">'+ivFmtS(tv)+'</span>'+
+      '<span style="text-align:right;color:'+(rv>100?'#f59e0b':'#94a3b8')+'">+'+rv+'%</span></div>';
+  }).join('');
+}
+// Chart.js 동적 로드
+(function(){
+  if(typeof Chart!=='undefined'){ivCalc();return;}
+  const s=document.createElement('script');
+  s.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';
+  s.onload=()=>ivCalc();
+  document.head.appendChild(s);
+})();
+
+// ── IMAGE SHARE CODE ───────────────────────────────────────────────────────────
+function generateImageCode(){
+  const slipData={};
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(k.startsWith('slip:'))slipData[k]=localStorage.getItem(k);
+  }
+  if(Object.keys(slipData).length===0){showToast('저장된 사진이 없어요');return;}
+  const json=JSON.stringify(slipData);
+  const code=typeof LZString!=='undefined'
+    ? 'IMG1:'+LZString.compressToBase64(json)
+    : 'IMGB:'+btoa(unescape(encodeURIComponent(json)));
+  document.getElementById('img-code-section').style.display='block';
+  document.getElementById('img-code-display').textContent=code.slice(0,80)+'...';
+  document.getElementById('img-code-size').textContent='코드 길이: '+code.length+'자 ('+Object.keys(slipData).length+'장)';
+  document._imgShareCode=code;
+  showToast('사진 코드 생성됐어요! ✓');
+}
+function copyImageCode(){
+  const code=document._imgShareCode;
+  if(!code){showToast('먼저 사진 코드를 생성해주세요');return;}
+  navigator.clipboard.writeText(code).then(()=>showToast('사진 코드 복사됐어요! ✓')).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=code;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);showToast('사진 코드 복사됐어요! ✓');
+  });
+}
+function importImageCode(){
+  const raw=document.getElementById('import-img-input').value.trim();
+  if(!raw){alert('사진 코드를 입력해주세요');return;}
+  try{
+    let json;
+    if(raw.startsWith('IMG1:'))json=LZString.decompressFromBase64(raw.slice(5));
+    else if(raw.startsWith('IMGB:'))json=decodeURIComponent(escape(atob(raw.slice(5))));
+    else{alert('올바르지 않은 사진 코드예요.');return;}
+    const data=JSON.parse(json);
+    const cnt=Object.keys(data).length;
+    if(!confirm(cnt+'장의 사진을 가져옵니다. 기존 사진은 덮어씌워집니다. 계속할까요?'))return;
+    Object.keys(data).forEach(k=>localStorage.setItem(k,data[k]));
+    renderSlipThumbs();
+    document.getElementById('import-img-input').value='';
+    showToast(cnt+'장 사진을 가져왔어요! ✓');
+  }catch{alert('올바르지 않은 사진 코드예요.');}
 }
 
 // ── TOAST ─────────────────────────────────────────────────────────────────────
