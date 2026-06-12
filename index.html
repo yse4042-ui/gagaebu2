@@ -1109,7 +1109,7 @@ function renderHome(){
   const totalFixed=fixed.reduce((a,f)=>a+num(f.amount),0);
   const loans=getLoans();
   let totalLoan=0;
-  loans.forEach(l=>{const sch=getLoanSchedule(l);const e=sch.find(e=>e.year===curYear&&e.month===curMonth);if(e)totalLoan+=e.payment;});
+  loans.forEach(l=>{if(l.excludeFromExpense)return;const sch=getLoanSchedule(l);const e=sch.find(e=>e.year===curYear&&e.month===curMonth);if(e)totalLoan+=e.payment;});
   // 적금 이달 누적 (표시용)
   const totalSav=configs.reduce((a,cfg)=>a+getSavingCumulative(cfg,curYear,curMonth),0);
   // 이달 적금 납입액 (월납입금 + 이달 추가납입 포함)
@@ -1344,7 +1344,7 @@ function renderAnnual(){
     const inc=ls('inc:'+key)||{};
     const exps=ls('exp:'+key)||[];
     let mLoan=0;
-    loans.forEach(l=>{const sch=getLoanSchedule(l);const e=sch.find(e=>e.year===annualYear&&e.month===m);if(e)mLoan+=e.payment;});
+    loans.forEach(l=>{if(l.excludeFromExpense)return;const sch=getLoanSchedule(l);const e=sch.find(e=>e.year===annualYear&&e.month===m);if(e)mLoan+=e.payment;});
     const mInc=num(inc.me)+num(inc.sp)+num(inc.extra);
     const mExp=exps.reduce((a,e)=>a+num(e.amount),0);
     monthlyInc.push(m<=cutoff?mInc:0);
@@ -1355,14 +1355,16 @@ function renderAnnual(){
       exps.forEach(e=>{annByCat[e.cat]=(annByCat[e.cat]||0)+num(e.amount);});
       annIncTypes.me+=num(inc.me);annIncTypes.sp+=num(inc.sp);annIncTypes.extra+=num(inc.extra);
       ['me','sp'].forEach(t=>{
-        annIncDetail[t].gross+=num(inc[t+'Gross']);
+        // 세전급여(정기)는 체크된 수입항목 합으로 집계
+        annIncDetail[t].gross+=(inc[t+'Bonus']||[]).filter(b=>b.regular!==false).reduce((a,b)=>a+num(b.amount),0);
         (inc[t+'Deds']||[]).forEach(d=>{
           const amt=num(d.amount);if(!amt)return;
           annIncDetail[t].dedTotal+=amt;
           const nm=d.name||'기타공제';
           annIncDetail[t].dedByName[nm]=(annIncDetail[t].dedByName[nm]||0)+amt;
         });
-        (inc[t+'Bonus']||[]).forEach(b=>{annIncDetail[t].bonTotal+=num(b.amount);});
+        // 비정기(상여금)만 별도 집계
+        (inc[t+'Bonus']||[]).filter(b=>b.regular===false).forEach(b=>{annIncDetail[t].bonTotal+=num(b.amount);});
       });
     }
   }
@@ -1570,77 +1572,101 @@ function toggleIncDetail(t){
   if(_incDetailOpen[t])renderIncDetail(t);
 }
 function incCalcNet(inc,t){
-  const gross=num(inc[t+'Gross']);
+  const incomes=inc[t+'Bonus']||[];
+  // 체크된 항목 = 세전급여(정기), 체크 안된 항목 = 상여금(비정기)
+  const regular=incomes.filter(b=>b.regular!==false).reduce((a,b)=>a+num(b.amount),0);
+  const irregular=incomes.filter(b=>b.regular===false).reduce((a,b)=>a+num(b.amount),0);
+  const gross=regular+irregular;
   if(!gross)return null;
   const deds=(inc[t+'Deds']||[]).reduce((a,d)=>a+num(d.amount),0);
-  const bons=(inc[t+'Bonus']||[]).reduce((a,b)=>a+num(b.amount),0);
-  return Math.max(0,gross-deds+bons);
+  return Math.max(0,gross-deds);
+}
+// 세전급여(정기) = 체크된 수입항목 합
+function incRegularGross(inc,t){
+  return (inc[t+'Bonus']||[]).filter(b=>b.regular!==false).reduce((a,b)=>a+num(b.amount),0);
 }
 function renderIncDetail(t){
   const el=document.getElementById('i-'+t+'-detail');
   if(!el)return;
   const inc=ls('inc:'+mk())||{};
-  const gross=num(inc[t+'Gross']);
   const deds=inc[t+'Deds']||[];
-  const bons=inc[t+'Bonus']||[];
+  const incomes=inc[t+'Bonus']||[];
   const dedTotal=deds.reduce((a,d)=>a+num(d.amount),0);
-  const bonTotal=bons.reduce((a,b)=>a+num(b.amount),0);
+  const regularGross=incomes.filter(b=>b.regular!==false).reduce((a,b)=>a+num(b.amount),0);
+  const irregularSum=incomes.filter(b=>b.regular===false).reduce((a,b)=>a+num(b.amount),0);
+  const grossAll=regularGross+irregularSum;
   const net=incCalcNet(inc,t);
-  const dedPct=gross>0?dedTotal/gross*100:0;
+  const dedPct=grossAll>0?dedTotal/grossAll*100:0;
+  // 세전월급(정기) 저장
+  inc[t+'Gross']=String(regularGross);
   // 자동계산 뱃지 + 실수령 반영
   const badge=document.getElementById('i-'+t+'-auto-badge');
-  if(badge)badge.style.display=gross>0?'inline':'none';
-  if(gross>0&&net!=null){
+  if(badge)badge.style.display=grossAll>0?'inline':'none';
+  if(grossAll>0&&net!=null){
     inc[t]=String(net);lss('inc:'+mk(),inc);
     const inp=document.getElementById('i-'+t);
     if(inp&&document.activeElement!==inp)inp.value=net;
     document.getElementById('i-total').textContent=fmt(num(inc.me)+num(inc.sp)+num(inc.extra));
-  }
+  }else{lss('inc:'+mk(),inc);}
   const dedRows=deds.map((d,i)=>`<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
     <input class="inline-input" style="flex:1;border-bottom:1px solid var(--border2);font-size:12px" value="${d.name||''}" placeholder="예: 국민연금" onchange="updIncItem('${t}','Deds',${i},'name',this.value)"/>
     <input type="number" class="inline-input" style="width:95px;border-bottom:1px solid var(--border2);color:var(--red);font-size:12px;font-weight:600;text-align:right" value="${d.amount||''}" placeholder="금액" onchange="updIncItem('${t}','Deds',${i},'amount',this.value)"/>
     <button class="icon-btn" style="font-size:12px" onclick="delIncItem('${t}','Deds',${i})">🗑️</button>
   </div>`).join('');
-  const bonRows=bons.map((b,i)=>`<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
-    <input class="inline-input" style="flex:1;border-bottom:1px solid var(--border2);font-size:12px" value="${b.name||''}" placeholder="예: 성과상여" onchange="updIncItem('${t}','Bonus',${i},'name',this.value)"/>
-    <input type="number" class="inline-input" style="width:95px;border-bottom:1px solid var(--border2);color:var(--green);font-size:12px;font-weight:600;text-align:right" value="${b.amount||''}" placeholder="금액" onchange="updIncItem('${t}','Bonus',${i},'amount',this.value)"/>
+  const incRows=incomes.map((b,i)=>{
+    const isReg=b.regular!==false;
+    return `<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+    <button onclick="toggleIncRegular('${t}',${i})" title="${isReg?'정기(세전급여 반영)':'비정기(상여금)'}" style="flex-shrink:0;width:22px;height:22px;border-radius:6px;border:1px solid ${isReg?'var(--green-border)':'var(--border2)'};background:${isReg?'var(--green-dim)':'transparent'};color:${isReg?'var(--green)':'var(--text4)'};font-size:12px;cursor:pointer;padding:0;line-height:1">${isReg?'✓':''}</button>
+    <input class="inline-input" style="flex:1;border-bottom:1px solid var(--border2);font-size:12px" value="${b.name||''}" placeholder="예: 기본급" onchange="updIncItem('${t}','Bonus',${i},'name',this.value)"/>
+    <input type="number" class="inline-input" style="width:88px;border-bottom:1px solid var(--border2);color:${isReg?'var(--green)':'var(--accent)'};font-size:12px;font-weight:600;text-align:right" value="${b.amount||''}" placeholder="금액" onchange="updIncItem('${t}','Bonus',${i},'amount',this.value)"/>
     <button class="icon-btn" style="font-size:12px" onclick="delIncItem('${t}','Bonus',${i})">🗑️</button>
-  </div>`).join('');
+  </div>`;}).join('');
   el.innerHTML=`<div style="background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:13px;margin-bottom:12px">
     <button onclick="copyIncFromPrev('${t}')" style="width:100%;font-size:12px;color:var(--blue);background:var(--blue-dim);border:1px solid var(--blue-border);border-radius:10px;padding:9px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;margin-bottom:13px;font-weight:600">📋 지난달 내용 복사해오기</button>
-    <div class="field" style="margin-bottom:12px"><label>💰 세전월급 (원)</label>
-      <input type="number" value="${inc[t+'Gross']||''}" placeholder="입력 시 실수령액 자동계산" oninput="updIncGross('${t}',this.value)"/></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
+      <span style="font-size:11px;font-weight:700;color:var(--green)">➕ 수입항목</span>
+      <span style="font-size:9px;color:var(--text4)">✓체크=세전급여(정기) · 미체크=상여금</span>
+    </div>
+    ${incRows}
+    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">
+      ${['기본급','연장수당','당직수당','직책수당','식대','정기수당'].map(nm=>`<button onclick="quickAddIncItem('${t}','Bonus','${nm}',true)" style="font-size:10.5px;color:var(--green);background:var(--green-dim);border:1px solid var(--green-border);border-radius:99px;padding:4px 10px;cursor:pointer;font-family:'Noto Sans KR',sans-serif">+ ${nm}</button>`).join('')}
+      ${['성과급','상여금','명절상여'].map(nm=>`<button onclick="quickAddIncItem('${t}','Bonus','${nm}',false)" style="font-size:10.5px;color:var(--accent);background:var(--accent-dim);border:1px solid var(--accent-border);border-radius:99px;padding:4px 10px;cursor:pointer;font-family:'Noto Sans KR',sans-serif">+ ${nm}</button>`).join('')}
+    </div>
+    <button onclick="addIncItem('${t}','Bonus')" style="font-size:11px;color:var(--green);background:none;border:1px dashed var(--green-border);border-radius:8px;padding:6px;cursor:pointer;width:100%;font-family:'Noto Sans KR',sans-serif;margin-bottom:14px">+ 직접 추가</button>
     <div style="font-size:11px;font-weight:700;color:var(--red);margin-bottom:7px">➖ 공제항목 (세금·보험료 등)</div>
     ${dedRows}
     <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">
       ${['국민연금','건강보험','장기요양','고용보험','소득세','지방소득세'].map(nm=>`<button onclick="quickAddIncItem('${t}','Deds','${nm}')" style="font-size:10.5px;color:var(--red);background:var(--red-dim);border:1px solid var(--red-border);border-radius:99px;padding:4px 10px;cursor:pointer;font-family:'Noto Sans KR',sans-serif">+ ${nm}</button>`).join('')}
     </div>
     <button onclick="addIncItem('${t}','Deds')" style="font-size:11px;color:var(--red);background:none;border:1px dashed var(--red-border);border-radius:8px;padding:6px;cursor:pointer;width:100%;font-family:'Noto Sans KR',sans-serif;margin-bottom:12px">+ 직접 추가</button>
-    <div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:7px">➕ 상여항목 (상여금·수당 등)</div>
-    ${bonRows}
-    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">
-      ${['기본급','연장수당','당직수당','식대','성과급','상여금'].map(nm=>`<button onclick="quickAddIncItem('${t}','Bonus','${nm}')" style="font-size:10.5px;color:var(--green);background:var(--green-dim);border:1px solid var(--green-border);border-radius:99px;padding:4px 10px;cursor:pointer;font-family:'Noto Sans KR',sans-serif">+ ${nm}</button>`).join('')}
-    </div>
-    <button onclick="addIncItem('${t}','Bonus')" style="font-size:11px;color:var(--green);background:none;border:1px dashed var(--green-border);border-radius:8px;padding:6px;cursor:pointer;width:100%;font-family:'Noto Sans KR',sans-serif;margin-bottom:12px">+ 직접 추가</button>
-    ${gross>0?`<div style="display:flex;align-items:center;gap:14px;padding-top:11px;border-top:1px solid var(--border2)">
+    ${grossAll>0?`<div style="display:flex;align-items:center;gap:14px;padding-top:11px;border-top:1px solid var(--border2)">
       ${svgRing(dedPct,'var(--red)',64,dedPct.toFixed(1)+'%','공제율')}
       <div style="flex:1;font-size:11.5px;line-height:2">
-        <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">세전월급</span><b style="color:var(--text)">${fmt(gross)}</b></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">세전급여(정기)</span><b style="color:var(--green)">${fmt(regularGross)}</b></div>
+        ${irregularSum>0?`<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">상여금(비정기)</span><b style="color:var(--accent)">+${fmt(irregularSum)}</b></div>`:''}
         <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">공제 합계</span><b style="color:var(--red)">-${fmt(dedTotal)}</b></div>
-        <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">상여 합계</span><b style="color:var(--green)">+${fmt(bonTotal)}</b></div>
         <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border2);padding-top:3px"><span style="color:var(--text);font-weight:700">실수령액</span><b style="color:var(--accent);font-size:13px">${fmt(net)}</b></div>
       </div>
     </div>`:''}
   </div>`;
 }
+function toggleIncRegular(t,i){
+  const inc=ls('inc:'+mk())||{};
+  if(!inc[t+'Bonus']||!inc[t+'Bonus'][i])return;
+  const cur=inc[t+'Bonus'][i].regular!==false;
+  inc[t+'Bonus'][i].regular=!cur;
+  lss('inc:'+mk(),inc);
+  renderIncDetail(t);renderHome();
+}
 function updIncGross(t,v){const inc=ls('inc:'+mk())||{};inc[t+'Gross']=v;lss('inc:'+mk(),inc);renderIncDetailSoft(t);}
-function addIncItem(t,kind){const inc=ls('inc:'+mk())||{};if(!inc[t+kind])inc[t+kind]=[];inc[t+kind].push({name:'',amount:''});lss('inc:'+mk(),inc);renderIncDetail(t);}
-function quickAddIncItem(t,kind,name){
+function addIncItem(t,kind){const inc=ls('inc:'+mk())||{};if(!inc[t+kind])inc[t+kind]=[];inc[t+kind].push(kind==='Bonus'?{name:'',amount:'',regular:true}:{name:'',amount:''});lss('inc:'+mk(),inc);renderIncDetail(t);}
+function quickAddIncItem(t,kind,name,regular){
   const inc=ls('inc:'+mk())||{};
   if(!inc[t+kind])inc[t+kind]=[];
-  // 이미 같은 이름 있으면 중복 추가 안 함
   if(inc[t+kind].some(x=>x.name===name)){showToast(name+' 항목이 이미 있어요');return;}
-  inc[t+kind].push({name:name,amount:''});
+  const item={name:name,amount:''};
+  if(kind==='Bonus')item.regular=(regular!==false);
+  inc[t+kind].push(item);
   lss('inc:'+mk(),inc);
   renderIncDetail(t);
 }
@@ -1654,7 +1680,7 @@ function copyIncFromPrev(t){
     showToast('지난달 '+(t==='me'?'본인':'배우자')+' 상세입력 내역이 없어요');
     return;
   }
-  if(!confirm(y+'년 '+m+'월의 '+(t==='me'?'본인':'배우자')+' 상세입력(세전·공제·상여)을 이번 달로 복사할까요?\\n\\n현재 입력값은 덮어씌워집니다.'))return;
+  if(!confirm(y+'년 '+m+'월의 '+(t==='me'?'본인':'배우자')+' 상세입력(수입항목·공제·체크여부)을 이번 달로 복사할까요?\\n\\n현재 입력값은 덮어씌워집니다.'))return;
   const inc=ls('inc:'+mk())||{};
   inc[t+'Gross']=prev[t+'Gross']||'';
   inc[t+'Deds']=JSON.parse(JSON.stringify(prev[t+'Deds']||[]));
@@ -2119,6 +2145,13 @@ function renderLoans(){
         ${[['대출원금',fmt(total),'#60a5fa'],['연이율',numf(l.rate).toFixed(2)+'%','#a78bfa'],['상환방식',methodLabel,'#e879f9'],['상환기간',l.termMonths+'개월','#94a3b8'],['월 납입액',fmt(dispM)+(manualM>0?' (직접)':''),'var(--accent)'],['잔여 잔액',fmt(balance),'var(--red)'],['잔여 기간',remainMonths+'개월','#94a3b8']].map(([k,v,c])=>
           `<div style="background:var(--card2);border-radius:8px;padding:10px;border:1px solid var(--border)"><div style="font-size:9px;color:var(--text4);margin-bottom:3px">${k}</div><div style="font-size:12px;font-weight:700;color:${c}">${v}</div></div>`).join('')}
       </div>
+      <div onclick="toggleLoanExclude(${idx})" style="display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:10px;margin-bottom:12px;cursor:pointer;background:${l.excludeFromExpense?'var(--accent-dim)':'var(--card2)'};border:1px solid ${l.excludeFromExpense?'var(--accent-border)':'var(--border)'}">
+        <span style="flex-shrink:0;width:22px;height:22px;border-radius:6px;border:1px solid ${l.excludeFromExpense?'var(--accent-border)':'var(--border2)'};background:${l.excludeFromExpense?'var(--accent)':'transparent'};color:#0f172a;font-size:13px;display:flex;align-items:center;justify-content:center;font-weight:800">${l.excludeFromExpense?'✓':''}</span>
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:600;color:${l.excludeFromExpense?'var(--accent)':'var(--text2)'}">급여에서 선공제됨 (지출합계 제외)</div>
+          <div style="font-size:10px;color:var(--text4);margin-top:1px">${l.excludeFromExpense?'이 대출은 홈 지출/잔여 계산에서 빠져요':'체크하면 수입탭 공제와 이중계산을 방지해요'}</div>
+        </div>
+      </div>
       <div style="margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="color:#60a5fa">상환 진행률</span><span style="color:#93c5fd;font-weight:700">${repaidPct.toFixed(1)}%</span></div>
         <div style="background:var(--card2);border-radius:6px;height:8px;overflow:hidden"><div style="width:${repaidPct}%;background:linear-gradient(90deg,#3b82f6,#60a5fa);height:8px;border-radius:6px;transition:width .6s"></div></div>
@@ -2178,6 +2211,7 @@ function saveLoanModal(){
   if(homeView==='annual')renderAnnual();
 }
 function deleteLoan(idx){if(!confirm('이 대출을 삭제할까요?'))return;const loans=getLoans();loans.splice(idx,1);lss('loans',loans);renderLoans();renderHome();if(homeView==='annual')renderAnnual();}
+function toggleLoanExclude(idx){const loans=getLoans();loans[idx].excludeFromExpense=!loans[idx].excludeFromExpense;lss('loans',loans);renderLoans();renderHome();if(homeView==='annual')renderAnnual();}
 
 // ── FIXED ─────────────────────────────────────────────────────────────────────
 function getDefaultFixed(){return[
@@ -2189,7 +2223,34 @@ function getDefaultFixed(){return[
   {id:'f6',name:'부모님(경남)',amount:'300000',note:'어머니',group:'부모님'},
 ];}
 function getChecks(){return ls('fx-check:'+mk())||{};}
-function toggleCheck(id){const c=getChecks();c[id]=!c[id];lss('fx-check:'+mk(),c);renderFixed();}
+// 자동이체일이 지났는지 판정 (보고 있는 달 기준, 저장 안 함)
+function isAutoPassed(autoDay){
+  const ad=parseInt(autoDay);
+  if(!ad)return false;
+  const now=new Date();
+  const realY=now.getFullYear(),realM=now.getMonth()+1,todayDay=now.getDate();
+  if(curYear<realY||(curYear===realY&&curMonth<realM))return true;   // 과거 달
+  if(curYear===realY&&curMonth===realM)return ad<=todayDay;          // 현재 달: 오늘 지난 것만
+  return false;                                                       // 미래 달: 절대 체크 안 함
+}
+// 실제 체크 상태: 수동조작(manual) 우선, 없으면 자동판정
+function isFxChecked(f){
+  const checks=getChecks();
+  const manual=checks[f.id];
+  if(manual==='on')return true;    // 사용자가 직접 체크
+  if(manual==='off')return false;  // 사용자가 직접 해제
+  return isAutoPassed(f.autoDay);  // 조작 안 했으면 자동이체일 기준
+}
+function toggleCheck(id){
+  const fixed=ls('budget:fixed')||getDefaultFixed();
+  const f=fixed.find(x=>x.id===id);
+  const c=getChecks();
+  const cur=f?isFxChecked(f):!!c[id];
+  // 토글 결과를 명시적 on/off로 저장 (자동판정 덮어쓰기)
+  c[id]=cur?'off':'on';
+  lss('fx-check:'+mk(),c);
+  renderFixed();
+}
 
 function moveFixed(i,dir){
   const f=ls('budget:fixed')||getDefaultFixed();
@@ -2205,24 +2266,7 @@ function setFixedGroup(i,g){
 
 function renderFixed(){
   const fixed=ls('budget:fixed')||getDefaultFixed();
-  // 자동이체일 지난 항목 자동체크 (보고 있는 월 기준으로 정확히 판정)
-  const now=new Date();
-  const realY=now.getFullYear(),realM=now.getMonth()+1,todayDay=now.getDate();
-  const checks=getChecks();
-  let checksChanged=false;
-  fixed.forEach(f=>{
-    if(!f.autoDay||checks[f.id])return;
-    const ad=parseInt(f.autoDay);
-    if(!ad)return;
-    let passed=false;
-    if(curYear<realY||(curYear===realY&&curMonth<realM)){
-      passed=true;            // 과거 달: 이체일 무조건 지남
-    }else if(curYear===realY&&curMonth===realM){
-      passed=ad<=todayDay;    // 현재 달: 오늘 이후만
-    }                          // 미래 달: 자동체크 안 함
-    if(passed){checks[f.id]=true;checksChanged=true;}
-  });
-  if(checksChanged)lss('fx-check:'+mk(),checks);
+  // 자동체크는 저장하지 않고 렌더 시점에 실시간 판정 (isFxChecked)
   const totalM=fixed.reduce((a,f)=>a+num(f.amount),0);
   document.getElementById('fx-monthly-total').textContent=fmt(totalM);
 
@@ -2240,7 +2284,7 @@ function renderFixed(){
   }
 
   // 체크 현황
-  const checkedCount=fixed.filter(f=>checks[f.id]).length;
+  const checkedCount=fixed.filter(f=>isFxChecked(f)).length;
   const total=fixed.length,pct=total?Math.round(checkedCount/total*100):0;
   const progEl=document.getElementById('fx-check-progress');
   if(total>0){progEl.innerHTML=`<div class="fx-progress">
@@ -2265,7 +2309,7 @@ function renderFixed(){
       </div>`;
     items.forEach(f=>{
       const i=f._i;
-      const checked=!!checks[f.id];
+      const checked=isFxChecked(f);
       const bg=checked?'#071d0f':'var(--card)';
       const bdr=checked?'#166534':'var(--border)';
       const nameColor=checked?'#4ade80':'var(--text)';
