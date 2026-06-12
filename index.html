@@ -256,6 +256,16 @@ body::before{content:'';position:fixed;top:-120px;left:50%;transform:translateX(
 /* ── 접근성 / 모션 감소 ── */
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important}}
+/* 순자산 플립 카드 */
+.flip-card{margin:10px 16px 0;perspective:1600px;cursor:pointer}
+.flip-inner{position:relative;width:100%;transition:transform .6s cubic-bezier(.4,0,.2,1);transform-style:preserve-3d}
+.flip-card.flipped .flip-inner{transform:rotateY(180deg)}
+.flip-face{border-radius:18px;padding:18px;box-shadow:0 2px 4px rgba(0,0,0,.12),0 10px 32px rgba(16,62,34,.25)}
+.flip-front{background:linear-gradient(135deg,#0a2415 30%,#103e22);border:1px solid var(--green-border)}
+.flip-back{position:absolute;inset:0;transform:rotateY(180deg);background:linear-gradient(135deg,#0a1f2e 30%,#103048);border:1px solid var(--blue-border);overflow-y:auto}
+.flip-inner>.flip-back{backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.flip-inner>.flip-front{backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.flip-hint{position:absolute;top:14px;right:14px;font-size:9px;color:var(--text4);opacity:.7;pointer-events:none}
 </style>
 </head>
 <body>
@@ -308,25 +318,38 @@ body::before{content:'';position:fixed;top:-120px;left:50%;transform:translateX(
       </div>
       <div id="h-flow" style="margin-top:16px"></div>
     </div>
-    <!-- 순자산 카드: 총자산 - 총부채 -->
-    <div style="margin:10px 16px 0;background:linear-gradient(135deg,#0a2415 30%,#103e22);border:1px solid var(--green-border);border-radius:18px;padding:18px;box-shadow:0 2px 4px rgba(0,0,0,.12),0 10px 32px rgba(16,62,34,.25)">
-      <div style="font-size:11px;color:#4ade80;margin-bottom:5px;font-weight:600">🏔️ 순자산 <span style="font-size:9px;color:#4ade8099">(총자산 − 총부채)</span></div>
-      <div style="font-size:30px;font-weight:800;letter-spacing:-.03em;color:var(--green)" id="h-networth">0원</div>
-      <div style="display:flex;gap:8px;margin-top:10px">
-        <div style="flex:1;background:rgba(52,211,153,0.08);border:1px solid var(--green-border);border-radius:10px;padding:9px 11px">
-          <div style="font-size:9px;color:#4ade80;margin-bottom:2px">💰 총자산</div>
-          <div style="font-size:14px;font-weight:700;color:#4ade80" id="h-asset-total">0원</div>
+    <!-- 순자산 플립 카드 (탭하면 총자산 상세) -->
+    <div class="flip-card" id="nw-flip" onclick="toggleNwFlip(event)">
+      <div class="flip-inner">
+        <!-- 앞면: 순자산 -->
+        <div class="flip-face flip-front">
+          <div class="flip-hint">탭하면 자산 상세 🔄</div>
+          <div style="font-size:11px;color:#4ade80;margin-bottom:5px;font-weight:600">🏔️ 순자산 <span style="font-size:9px;color:#4ade8099">(총자산 − 총부채)</span></div>
+          <div style="font-size:30px;font-weight:800;letter-spacing:-.03em;color:var(--green)" id="h-networth">0원</div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <div style="flex:1;background:rgba(52,211,153,0.08);border:1px solid var(--green-border);border-radius:10px;padding:9px 11px">
+              <div style="font-size:9px;color:#4ade80;margin-bottom:2px">💰 총자산</div>
+              <div style="font-size:14px;font-weight:700;color:#4ade80" id="h-asset-total">0원</div>
+            </div>
+            <div style="flex:1;background:rgba(248,113,113,0.08);border:1px solid var(--red-border);border-radius:10px;padding:9px 11px">
+              <div style="font-size:9px;color:#f87171;margin-bottom:2px">🏛️ 총부채</div>
+              <div style="font-size:14px;font-weight:700;color:#f87171" id="h-debt-total">0원</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap" id="h-asset-breakdown"></div>
+          <div id="h-networth-graph-wrap" style="margin-top:12px;display:none">
+            <div style="font-size:9px;color:var(--text3);margin-bottom:4px">📈 순자산 추이 (최근 7개월)</div>
+            <svg id="h-networth-graph" class="mini-graph" viewBox="0 0 300 60" preserveAspectRatio="none"></svg>
+            <div id="h-networth-graph-labels" style="display:flex;justify-content:space-between;font-size:8px;color:var(--text4);margin-top:2px"></div>
+          </div>
         </div>
-        <div style="flex:1;background:rgba(248,113,113,0.08);border:1px solid var(--red-border);border-radius:10px;padding:9px 11px">
-          <div style="font-size:9px;color:#f87171;margin-bottom:2px">🏛️ 총부채</div>
-          <div style="font-size:14px;font-weight:700;color:#f87171" id="h-debt-total">0원</div>
+        <!-- 뒷면: 총자산 상세 -->
+        <div class="flip-face flip-back">
+          <div class="flip-hint">탭하면 돌아가기 🔄</div>
+          <div style="font-size:11px;color:#60a5fa;margin-bottom:5px;font-weight:600">💰 총자산 상세 <span style="font-size:9px;color:#60a5fa99">(적금 + 예금 + 투자)</span></div>
+          <div style="font-size:30px;font-weight:800;letter-spacing:-.03em;color:#93c5fd" id="h-asset-total-back">0원</div>
+          <div id="h-asset-detail" style="margin-top:12px"></div>
         </div>
-      </div>
-      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap" id="h-asset-breakdown"></div>
-      <div id="h-networth-graph-wrap" style="margin-top:12px;display:none">
-        <div style="font-size:9px;color:var(--text3);margin-bottom:4px">📈 순자산 추이 (최근 7개월)</div>
-        <svg id="h-networth-graph" class="mini-graph" viewBox="0 0 300 60" preserveAspectRatio="none"></svg>
-        <div id="h-networth-graph-labels" style="display:flex;justify-content:space-between;font-size:8px;color:var(--text4);margin-top:2px"></div>
       </div>
     </div>
     <!-- 비상금 지표 -->
@@ -625,6 +648,7 @@ body::before{content:'';position:fixed;top:-120px;left:50%;transform:translateX(
       <div style="font-size:10px;color:#c4b5fd;margin-bottom:4px;font-weight:600">평가액 합계 <span style="font-size:9px;color:#a78bfa99">(순자산에 반영됨)</span></div>
       <div style="font-size:26px;font-weight:800;color:#c4b5fd;letter-spacing:-.02em" id="iv-hold-total">0원</div>
       <div style="font-size:11px;margin-top:4px" id="iv-hold-profit"></div>
+      <div id="iv-hold-chart" style="margin-top:14px;display:none"></div>
     </div>
     <div id="iv-hold-list"></div>
   </div>
@@ -1089,6 +1113,22 @@ function switchTab(id,btn){
   document.getElementById('screen').scrollTop=0;
 }
 
+// 순자산 카드 플립
+function toggleNwFlip(e){
+  const card=document.getElementById('nw-flip');
+  if(!card)return;
+  card.classList.toggle('flipped');
+  // 뒷면 높이를 앞면에 맞춤
+  const inner=card.querySelector('.flip-inner');
+  const front=card.querySelector('.flip-front');
+  const back=card.querySelector('.flip-back');
+  if(card.classList.contains('flipped')){
+    inner.style.height=back.scrollHeight+'px';
+  }else{
+    inner.style.height=front.scrollHeight+'px';
+  }
+}
+
 // ── SVG 차트 엔진 ──────────────────────────────────────────────────────────────
 function svgRing(pct,color,size,txt,sub){
   const sw=Math.max(5,Math.round(size*0.1));
@@ -1332,6 +1372,54 @@ function renderHome(){
     '<div style="font-size:9px;color:'+b.color+'">'+b.label+'</div>'+
     '<div style="font-size:11px;font-weight:700;color:'+b.color+'">'+fmt(b.val)+'</div></div>'
   ).join('');
+
+  // 플립 뒷면: 총자산 상세
+  const backTotalEl=document.getElementById('h-asset-total-back');
+  if(backTotalEl)backTotalEl.textContent=fmt(assetTotal);
+  const detailEl=document.getElementById('h-asset-detail');
+  if(detailEl){
+    const items=[];
+    if(savTotal>0)items.push({icon:'🏦',label:'적금 누적',val:savTotal,color:'#4ade80'});
+    if(depTotal>0)items.push({icon:'💎',label:'예금 원금',val:depTotal,color:'#93c5fd'});
+    if(invTotal>0)items.push({icon:'📈',label:'투자 평가액',val:invTotal,color:'#a78bfa'});
+    if(items.length===0){
+      detailEl.innerHTML='<div style="text-align:center;color:var(--text4);font-size:12px;padding:12px">적금·예금·투자를 입력하면<br>자산 구성이 표시돼요 💰</div>';
+    }else{
+      detailEl.innerHTML=
+        // 도넛
+        '<div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">'+
+        svgDonut(items.map(it=>({value:it.val,color:it.color})),96,fmtShort2(assetTotal),'총자산')+
+        '<div style="flex:1;min-width:0">'+
+        items.map(it=>{
+          const pc=assetTotal>0?(it.val/assetTotal*100).toFixed(0):0;
+          return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:7px">'+
+            '<span style="width:9px;height:9px;border-radius:3px;background:'+it.color+';flex-shrink:0"></span>'+
+            '<span style="font-size:11px;color:var(--text2);flex:1">'+it.icon+' '+it.label+'</span>'+
+            '<span style="font-size:11px;font-weight:700;color:'+it.color+'">'+pc+'%</span></div>';
+        }).join('')+
+        '</div></div>'+
+        // 항목별 금액 + 비중 바
+        items.map(it=>{
+          const pct=assetTotal>0?it.val/assetTotal*100:0;
+          return '<div style="margin-bottom:10px">'+
+            '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">'+
+            '<span style="color:var(--text2)">'+it.icon+' '+it.label+'</span>'+
+            '<span style="color:'+it.color+';font-weight:700">'+fmt(it.val)+'</span></div>'+
+            '<div class="prog-bar"><div class="prog-fill" style="width:'+pct+'%;background:'+it.color+'"></div></div></div>';
+        }).join('');
+    }
+  }
+  // 펼쳐진 상태면 높이 갱신
+  const nwFlip=document.getElementById('nw-flip');
+  if(nwFlip){
+    const inner=nwFlip.querySelector('.flip-inner'),back=nwFlip.querySelector('.flip-back'),front=nwFlip.querySelector('.flip-front');
+    if(inner&&front&&back){
+      // 다음 프레임에 높이 측정 (레이아웃 완료 후)
+      requestAnimationFrame(()=>{
+        inner.style.height=(nwFlip.classList.contains('flipped')?back.scrollHeight:front.scrollHeight)+'px';
+      });
+    }
+  }
   // 순자산 월별 추이 (최근 7개월)
   const nwGraphData=getRecentMonths(7).map(({y,m,lbl})=>{
     const sav=configs_.reduce((a,cfg)=>a+getSavingCumulative(cfg,y,m),0);
@@ -2834,6 +2922,44 @@ function renderHoldings(){
       const profit=total-cost;const pct=cost>0?profit/cost*100:0;
       profEl.innerHTML='<span style="color:'+(profit>=0?'#4ade80':'#f87171')+'">'+(profit>=0?'▲':'▼')+' '+fmt(Math.abs(profit))+' ('+(profit>=0?'+':'')+pct.toFixed(1)+'%)</span> <span style="color:var(--text4)">평가손익</span>';
     }else profEl.innerHTML='';
+  }
+  // 원금 대비 평가액 시각화 차트
+  const chartEl=document.getElementById('iv-hold-chart');
+  if(chartEl){
+    const withCost=holdings.filter(h=>num(h.cost)>0&&num(h.value)>0);
+    if(withCost.length>0){
+      chartEl.style.display='block';
+      const maxV=Math.max(total,cost);
+      // 전체 원금 vs 평가액 요약 바
+      const totProfit=total-cost;
+      const totPct=cost>0?totProfit/cost*100:0;
+      chartEl.innerHTML='<div style="padding-top:13px;border-top:1px solid rgba(167,139,250,.2)">'+
+        '<div style="font-size:10px;color:#c4b5fd;font-weight:600;margin-bottom:10px">📊 원금 대비 수익 현황</div>'+
+        // 전체 요약: 원금 바 + 평가액 바 (maxV 기준 동일 스케일)
+        '<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px"><span style="color:var(--text3)">💵 매입원금</span><span style="color:var(--text2);font-weight:600">'+fmt(cost)+'</span></div>'+
+        '<div style="height:14px;background:var(--prog-bg);border-radius:7px;overflow:hidden"><div style="width:'+(cost/maxV*100).toFixed(1)+'%;height:100%;background:#64748b;border-radius:7px;min-width:4px"></div></div></div>'+
+        '<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px"><span style="color:var(--text3)">📈 평가액</span><span style="color:'+(totProfit>=0?'#4ade80':'#f87171')+';font-weight:700">'+fmt(total)+' ('+(totProfit>=0?'+':'')+totPct.toFixed(1)+'%)</span></div>'+
+        '<div style="height:14px;background:var(--prog-bg);border-radius:7px;overflow:hidden"><div style="width:'+(total/maxV*100).toFixed(1)+'%;height:100%;background:linear-gradient(90deg,'+(totProfit>=0?'#22c55e,#4ade80':'#dc2626,#f87171')+');border-radius:7px;min-width:4px"></div></div></div>'+
+        // 종목별 손익 막대 (중앙 기준 좌우)
+        '<div style="font-size:9px;color:var(--text4);margin-bottom:8px;margin-top:12px">종목별 수익률</div>'+
+        withCost.map(h=>{
+          const v=num(h.value),c=num(h.cost);
+          const p=v-c;const pc=c>0?p/c*100:0;
+          const barW=Math.min(50,Math.abs(pc)/2); // 최대 ±100%를 50%폭으로
+          const up=p>=0;
+          return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">'+
+            '<span style="font-size:10px;color:var(--text2);width:62px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(h.name||'종목')+'</span>'+
+            '<div style="flex:1;height:16px;position:relative;background:var(--prog-bg);border-radius:4px;overflow:hidden">'+
+            '<div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--border2)"></div>'+
+            (up
+              ?'<div style="position:absolute;left:50%;top:0;bottom:0;width:'+barW+'%;background:linear-gradient(90deg,#22c55e,#4ade80);border-radius:0 4px 4px 0"></div>'
+              :'<div style="position:absolute;right:50%;top:0;bottom:0;width:'+barW+'%;background:linear-gradient(90deg,#f87171,#dc2626);border-radius:4px 0 0 4px"></div>')+
+            '</div>'+
+            '<span style="font-size:10px;font-weight:700;color:'+(up?'#4ade80':'#f87171')+';width:54px;text-align:right;flex-shrink:0">'+(up?'+':'')+pc.toFixed(1)+'%</span>'+
+            '</div>';
+        }).join('')+
+        '</div>';
+    }else{chartEl.style.display='none';}
   }
   const listEl=document.getElementById('iv-hold-list');
   if(!listEl)return;
