@@ -269,10 +269,20 @@ body::before{content:'';position:fixed;top:-120px;left:50%;transform:translateX(
     <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:13px">
       <span style="font-size:21px;font-weight:800;letter-spacing:-.03em;background:linear-gradient(90deg,var(--accent),#fde68a);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">우리 가계부</span>
       <span style="font-size:17px">💴</span>
+      <button onclick="shareHomeAsImage()" style="margin-left:auto;font-size:12px;color:var(--accent);background:var(--accent-dim);border:1px solid var(--accent-border);border-radius:99px;padding:6px 13px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;font-weight:600">📸 사진 공유</button>
     </div>
     <div class="view-toggle">
       <button class="toggle-opt active" id="tog-monthly" onclick="setHomeView('monthly')">📅 이달 보기</button>
       <button class="toggle-opt" id="tog-annual" onclick="setHomeView('annual')">📊 연간 분석</button>
+    </div>
+  </div>
+
+  <!-- 백업 알림 배너 -->
+  <div id="h-backup-banner" style="display:none;margin:0 16px 4px">
+    <div style="background:linear-gradient(135deg,#3d2a0a,#4a3410);border:1px solid #92400e;border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:18px">💾</span>
+      <div style="flex:1;font-size:11px;color:#fcd34d;line-height:1.5" id="h-backup-msg">데이터를 백업한 지 오래됐어요. 브라우저 정리 시 데이터가 사라질 수 있으니 백업을 권장해요.</div>
+      <button onclick="exportData()" style="font-size:11px;color:#0f172a;background:#fcd34d;border:none;border-radius:8px;padding:7px 11px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;font-weight:700;flex-shrink:0">백업</button>
     </div>
   </div>
 
@@ -298,11 +308,36 @@ body::before{content:'';position:fixed;top:-120px;left:50%;transform:translateX(
       </div>
       <div id="h-flow" style="margin-top:16px"></div>
     </div>
-    <!-- 자산총액 카드: 적금+예금 -->
+    <!-- 순자산 카드: 총자산 - 총부채 -->
     <div style="margin:10px 16px 0;background:linear-gradient(135deg,#0a2415 30%,#103e22);border:1px solid var(--green-border);border-radius:18px;padding:18px;box-shadow:0 2px 4px rgba(0,0,0,.12),0 10px 32px rgba(16,62,34,.25)">
-      <div style="font-size:11px;color:#4ade80;margin-bottom:5px;font-weight:600">💎 자산 총액 <span style="font-size:9px;color:#4ade8099">(적금 누적 + 예금 원금)</span></div>
-      <div style="font-size:30px;font-weight:800;letter-spacing:-.03em;color:var(--green)" id="h-asset-total">0원</div>
-      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap" id="h-asset-breakdown"></div>
+      <div style="font-size:11px;color:#4ade80;margin-bottom:5px;font-weight:600">🏔️ 순자산 <span style="font-size:9px;color:#4ade8099">(총자산 − 총부채)</span></div>
+      <div style="font-size:30px;font-weight:800;letter-spacing:-.03em;color:var(--green)" id="h-networth">0원</div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <div style="flex:1;background:rgba(52,211,153,0.08);border:1px solid var(--green-border);border-radius:10px;padding:9px 11px">
+          <div style="font-size:9px;color:#4ade80;margin-bottom:2px">💰 총자산</div>
+          <div style="font-size:14px;font-weight:700;color:#4ade80" id="h-asset-total">0원</div>
+        </div>
+        <div style="flex:1;background:rgba(248,113,113,0.08);border:1px solid var(--red-border);border-radius:10px;padding:9px 11px">
+          <div style="font-size:9px;color:#f87171;margin-bottom:2px">🏛️ 총부채</div>
+          <div style="font-size:14px;font-weight:700;color:#f87171" id="h-debt-total">0원</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap" id="h-asset-breakdown"></div>
+      <div id="h-networth-graph-wrap" style="margin-top:12px;display:none">
+        <div style="font-size:9px;color:var(--text3);margin-bottom:4px">📈 순자산 추이 (최근 7개월)</div>
+        <svg id="h-networth-graph" class="mini-graph" viewBox="0 0 300 60" preserveAspectRatio="none"></svg>
+        <div id="h-networth-graph-labels" style="display:flex;justify-content:space-between;font-size:8px;color:var(--text4);margin-top:2px"></div>
+      </div>
+    </div>
+    <!-- 비상금 지표 -->
+    <div id="h-emergency-wrap" style="margin:10px 16px 0;display:none">
+      <div style="background:var(--card);border:1px solid var(--border2);border-radius:16px;padding:16px;display:flex;align-items:center;gap:16px">
+        <div id="h-emergency-ring"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:3px">🛟 비상금 여력</div>
+          <div style="font-size:11px;color:var(--text3);line-height:1.6" id="h-emergency-desc"></div>
+        </div>
+      </div>
     </div>
     <div class="section" id="h-cats-section" style="display:none">
       <div class="section-label">💸 지출 분류</div>
@@ -482,7 +517,28 @@ body::before{content:'';position:fixed;top:-120px;left:50%;transform:translateX(
     </div>
   </div>
   <div class="chips" id="e-chips"></div>
+  <!-- 카테고리별 예산 -->
+  <div class="section" style="margin-top:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">
+      <span class="section-label" style="margin-bottom:0">🎯 카테고리별 예산</span>
+      <button onclick="openBudgetModal()" style="font-size:11px;color:var(--blue);background:var(--blue-dim);border:1px solid var(--blue-border);border-radius:99px;padding:4px 11px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;font-weight:600">⚙️ 예산 설정</button>
+    </div>
+    <div class="card" id="e-budget"></div>
+  </div>
   <div style="padding:12px 16px 0" id="e-list"></div>
+</div>
+
+<!-- 예산 설정 모달 -->
+<div class="overlay" id="budget-overlay">
+  <div class="modal">
+    <div class="modal-title">🎯 카테고리별 월 예산 설정</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:14px">카테고리별 한도를 정하면 지출이 한도에 가까워질 때 알려드려요.</div>
+    <div id="budget-inputs"></div>
+    <div class="btn-row">
+      <button class="btn btn-cancel" onclick="closeBudgetModal()">닫기</button>
+      <button class="btn btn-save" onclick="saveBudget()">저장</button>
+    </div>
+  </div>
 </div>
 
 <!-- ══ SAVINGS ════════════════════════════════════════════════════════════════ -->
@@ -557,7 +613,25 @@ body::before{content:'';position:fixed;top:-120px;left:50%;transform:translateX(
 
 <!-- ══ INVEST ═══════════════════════════════════════════════════════════════ -->
 <div id="page-invest" class="page">
-  <div class="top-bar"><span class="page-title">📈 투자 시뮬레이션</span></div>
+  <div class="top-bar"><span class="page-title">📈 투자 관리</span></div>
+
+  <!-- 실제 보유 투자자산 -->
+  <div style="margin:0 16px 16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <span style="font-size:13px;font-weight:700;color:#a78bfa">💼 보유 투자자산</span>
+      <button onclick="addHolding()" style="font-size:12px;color:#a78bfa;background:var(--purple-dim);border:1px solid var(--purple-border);border-radius:99px;padding:5px 13px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;font-weight:600">+ 추가</button>
+    </div>
+    <div style="background:linear-gradient(135deg,#1a1030,#2a1a4a);border:1px solid var(--purple-border);border-radius:14px;padding:16px;margin-bottom:10px">
+      <div style="font-size:10px;color:#c4b5fd;margin-bottom:4px;font-weight:600">평가액 합계 <span style="font-size:9px;color:#a78bfa99">(순자산에 반영됨)</span></div>
+      <div style="font-size:26px;font-weight:800;color:#c4b5fd;letter-spacing:-.02em" id="iv-hold-total">0원</div>
+      <div style="font-size:11px;margin-top:4px" id="iv-hold-profit"></div>
+    </div>
+    <div id="iv-hold-list"></div>
+  </div>
+
+  <div style="margin:0 16px 12px;border-top:1px solid var(--border);padding-top:16px">
+    <span style="font-size:13px;font-weight:700;color:#60a5fa">🔮 투자 시뮬레이션</span>
+  </div>
 
   <!-- 히어로 -->
   <div style="margin:0 16px 14px;background:linear-gradient(135deg,#0d1b3e,#1a2f5e);border:1px solid #1e3a6e;border-radius:16px;padding:16px">
@@ -960,6 +1034,44 @@ function setHomeView(v){
 }
 function changeAnnualYear(d){annualYear+=d;renderAnnual();}
 
+// 홈탭 전체를 사진으로 공유/저장
+function shareHomeAsImage(){
+  const run=()=>{
+    const target=document.getElementById(homeView==='monthly'?'view-monthly':'view-annual');
+    if(!target){showToast('캡처할 화면이 없어요');return;}
+    showToast('📸 이미지 생성 중...');
+    // 캡처 직전 배경/여백 보정용 래퍼
+    const bgColor=getComputedStyle(document.body).backgroundColor;
+    html2canvas(target,{backgroundColor:bgColor,scale:2,useCORS:true,logging:false}).then(canvas=>{
+      canvas.toBlob(blob=>{
+        if(!blob){showToast('이미지 생성 실패');return;}
+        const now=new Date();
+        const stamp=now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0');
+        const fileName='가계부_'+(homeView==='monthly'?curYear+'년'+curMonth+'월':annualYear+'년_연간')+'_'+stamp+'.png';
+        const file=new File([blob],fileName,{type:'image/png'});
+        // 모바일 네이티브 공유 시도 (카카오톡 등으로 바로 전송)
+        if(navigator.canShare&&navigator.canShare({files:[file]})){
+          navigator.share({files:[file],title:'우리 가계부'}).then(()=>showToast('공유 완료! ✓')).catch(()=>{/* 취소 */});
+        }else{
+          // 데스크탑/미지원: 다운로드
+          const url=URL.createObjectURL(blob);
+          const a=document.createElement('a');a.href=url;a.download=fileName;
+          document.body.appendChild(a);a.click();document.body.removeChild(a);
+          setTimeout(()=>URL.revokeObjectURL(url),1000);
+          showToast('이미지를 저장했어요! ✓');
+        }
+      },'image/png');
+    }).catch(()=>{showToast('이미지 생성 실패');});
+  };
+  if(typeof html2canvas!=='undefined'){run();return;}
+  showToast('📸 라이브러리 로딩 중...');
+  const s=document.createElement('script');
+  s.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+  s.onload=run;
+  s.onerror=()=>showToast('라이브러리 로드 실패 (인터넷 확인)');
+  document.head.appendChild(s);
+}
+
 function changeMonth(d){
   curMonth+=d;
   if(curMonth>12){curMonth=1;curYear++;}
@@ -973,6 +1085,7 @@ function switchTab(id,btn){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   curTab=id; renderAll();
+  if(id==='invest'){renderHoldings();ivCalc();}
   document.getElementById('screen').scrollTop=0;
 }
 
@@ -1115,6 +1228,22 @@ function renderHome(){
   const inc=ls('inc:'+mk())||{};
   const exps=ls('exp:'+mk())||[];
   const fixed=ls('budget:fixed')||getDefaultFixed();
+  // 백업 알림: 마지막 백업 14일 경과 또는 미백업 + 데이터 있을 때
+  const banner=document.getElementById('h-backup-banner');
+  if(banner){
+    const lastBackup=ls('last-backup');
+    const hasData=localStorage.length>5;
+    let show=false,msg='';
+    if(hasData){
+      if(!lastBackup){show=true;msg='💡 아직 백업한 적이 없어요. 브라우저 정리 시 데이터가 사라질 수 있으니 백업을 권장해요.';}
+      else{
+        const days=Math.floor((Date.now()-new Date(lastBackup).getTime())/86400000);
+        if(days>=14){show=true;msg='마지막 백업 후 '+days+'일 지났어요. 안전하게 백업해두는 걸 권장해요.';}
+      }
+    }
+    banner.style.display=show?'block':'none';
+    if(show)document.getElementById('h-backup-msg').textContent=msg;
+  }
   const configs=ls('saving-configs')||getDefaultSavingConfigs();
   const totalInc=num(inc.me)+num(inc.sp)+num(inc.extra);
   const totalExp=exps.reduce((a,e)=>a+num(e.amount),0);
@@ -1171,21 +1300,80 @@ function renderHome(){
     }else{flowEl.innerHTML='';}
   }
 
-  // 자산총액 = 적금 누적 + 예금 원금
+  // 순자산 = 총자산(적금+예금+투자보유) − 총부채(대출잔액)
   const configs_=ls('saving-configs')||getDefaultSavingConfigs();
   const savTotal=configs_.reduce((a,cfg)=>a+getSavingCumulative(cfg,curYear,curMonth),0);
   const deps=ls('deposit-configs')||[];
   const depTotal=deps.reduce((a,d)=>a+num(d.principal),0);
-  const assetTotal=savTotal+depTotal;
+  const holdings=ls('invest-holdings')||[];
+  const invTotal=holdings.reduce((a,h)=>a+num(h.value),0);
+  const assetTotal=savTotal+depTotal+invTotal;
+  // 총부채 = 모든 대출의 현재 잔액 합계
+  const debtTotal=loans.reduce((a,l)=>{
+    const P=num(l.principal);if(!P)return a;
+    const sch=getLoanSchedule(l);
+    let curBal=P;
+    const past=sch.filter(e=>e.year<curYear||(e.year===curYear&&e.month<=curMonth));
+    if(past.length>0)curBal=past[past.length-1].balance;
+    return a+curBal;
+  },0);
+  const netWorth=assetTotal-debtTotal;
+  const nwEl=document.getElementById('h-networth');
+  nwEl.textContent=(netWorth>=0?'':'-')+fmt(Math.abs(netWorth)).replace('-','');
+  nwEl.style.color=netWorth>=0?'var(--green)':'var(--red)';
   document.getElementById('h-asset-total').textContent=fmt(assetTotal);
+  document.getElementById('h-debt-total').textContent=fmt(debtTotal);
   const breakdown=[];
   if(savTotal>0)breakdown.push({label:'🏦 적금',val:savTotal,color:'#4ade80'});
   if(depTotal>0)breakdown.push({label:'💎 예금',val:depTotal,color:'#93c5fd'});
+  if(invTotal>0)breakdown.push({label:'📈 투자',val:invTotal,color:'#a78bfa'});
   document.getElementById('h-asset-breakdown').innerHTML=breakdown.map(b=>
-    '<div style="background:rgba(52,211,153,0.1);border:1px solid var(--green-border);border-radius:8px;padding:6px 10px">'+
+    '<div style="background:rgba(52,211,153,0.1);border:1px solid var(--green-border);border-radius:8px;padding:5px 9px">'+
     '<div style="font-size:9px;color:'+b.color+'">'+b.label+'</div>'+
-    '<div style="font-size:12px;font-weight:700;color:'+b.color+'">'+fmt(b.val)+'</div></div>'
+    '<div style="font-size:11px;font-weight:700;color:'+b.color+'">'+fmt(b.val)+'</div></div>'
   ).join('');
+  // 순자산 월별 추이 (최근 7개월)
+  const nwGraphData=getRecentMonths(7).map(({y,m,lbl})=>{
+    const sav=configs_.reduce((a,cfg)=>a+getSavingCumulative(cfg,y,m),0);
+    const dep=deps.reduce((a,d)=>{
+      if(!d.startDate)return a+num(d.principal);
+      const[sy,sm]=d.startDate.split('-').map(Number);
+      return (y>sy||(y===sy&&m>=sm))?a+num(d.principal):a;
+    },0);
+    const debt=loans.reduce((a,l)=>{
+      const P=num(l.principal);if(!P)return a;
+      const sch=getLoanSchedule(l);let bal=P;
+      const past=sch.filter(e=>e.year<y||(e.year===y&&e.month<=m));
+      if(past.length>0)bal=past[past.length-1].balance;
+      else{const fut=sch.filter(e=>e.year>y||(e.year===y&&e.month>m));if(fut.length>0)bal=P;}
+      return a+bal;
+    },0);
+    return {v:sav+dep+invTotal-debt,lbl};
+  });
+  const nwWrap=document.getElementById('h-networth-graph-wrap');
+  if(nwGraphData.some(d=>d.v!==0)){nwWrap.style.display='block';drawMiniGraph('h-networth-graph','h-networth-graph-labels',nwGraphData,'#4ade80');}
+  else{nwWrap.style.display='none';}
+
+  // 비상금 여력 = 유동자산(예금+적금누적) ÷ 월 고정성 지출
+  const liquidAsset=savTotal+depTotal; // 즉시 인출 가능한 유동자산
+  const monthlyBurn=totalExp+totalFixed+totalLoan; // 매월 나가는 돈
+  const emWrap=document.getElementById('h-emergency-wrap');
+  if(liquidAsset>0&&monthlyBurn>0){
+    emWrap.style.display='block';
+    const months=liquidAsset/monthlyBurn;
+    // 권장 6개월 기준 달성률
+    const targetMonths=6;
+    const pct=Math.min(100,months/targetMonths*100);
+    let color,grade;
+    if(months>=6){color='#4ade80';grade='안정적이에요 👍';}
+    else if(months>=3){color='#f59e0b';grade='적정 수준이에요';}
+    else{color='#f87171';grade='더 모으면 좋아요';}
+    document.getElementById('h-emergency-ring').innerHTML=svgRing(pct,color,68,months.toFixed(1),'개월');
+    document.getElementById('h-emergency-desc').innerHTML=
+      '유동자산 <b style="color:var(--text)">'+fmtShort2(liquidAsset)+'</b>으로<br>'+
+      '월 지출 <b style="color:var(--text)">'+fmtShort2(monthlyBurn)+'</b> 기준 <b style="color:'+color+'">'+months.toFixed(1)+'개월</b> 버틸 수 있어요<br>'+
+      '<span style="color:'+color+'">'+grade+'</span> <span style="color:var(--text4)">(권장 6개월)</span>';
+  }else{emWrap.style.display='none';}
 
   // 지출 분류
   const catSec=document.getElementById('h-cats-section'),catEl=document.getElementById('h-cats');
@@ -1279,28 +1467,68 @@ function renderHome(){
   const loansSec=document.getElementById('h-loans-section'),loansEl=document.getElementById('h-loans');
   if(loans.length>0){
     loansSec.style.display='block';
-    let loanRows=[];
+    // 전체 대출 상환 요약 (현재 시점 기준)
+    let sumPrincipal=0,sumBalance=0;
+    loans.forEach(l=>{
+      const P=num(l.principal);if(!P)return;
+      const sch=getLoanSchedule(l);
+      // 현재 달 또는 가장 가까운 과거 회차의 잔액
+      let curBal=P;
+      const past=sch.filter(e=>e.year<curYear||(e.year===curYear&&e.month<=curMonth));
+      if(past.length>0)curBal=past[past.length-1].balance;
+      sumPrincipal+=P;sumBalance+=curBal;
+    });
+    const sumRepaid=Math.max(0,sumPrincipal-sumBalance);
+    const repaidPct=sumPrincipal>0?sumRepaid/sumPrincipal*100:0;
+    const summaryHTML=sumPrincipal>0?`<div style="display:flex;align-items:center;gap:16px;padding:6px 2px 16px;margin-bottom:10px;border-bottom:1px solid var(--border)">
+      ${svgDonut([{value:sumRepaid,color:'#22c55e'},{value:sumBalance,color:'#1e3a5f'}],110,repaidPct.toFixed(0)+'%','상환완료')}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;color:var(--text3);margin-bottom:8px;font-weight:600">전체 대출 상환 현황</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <span style="width:9px;height:9px;border-radius:3px;background:#22c55e;flex-shrink:0"></span>
+          <span style="font-size:11px;color:var(--text2);flex:1">갚은 원금</span>
+          <span style="font-size:12px;font-weight:700;color:#4ade80">${fmtShort2(sumRepaid)}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+          <span style="width:9px;height:9px;border-radius:3px;background:#3b6098;flex-shrink:0"></span>
+          <span style="font-size:11px;color:var(--text2);flex:1">남은 잔액</span>
+          <span style="font-size:12px;font-weight:700;color:#93c5fd">${fmtShort2(sumBalance)}</span>
+        </div>
+        <div style="padding-top:7px;border-top:1px solid var(--border);display:flex;justify-content:space-between">
+          <span style="font-size:11px;color:var(--text3)">총 대출액</span>
+          <span style="font-size:12px;font-weight:700;color:var(--text)">${fmtShort2(sumPrincipal)}</span>
+        </div>
+      </div>
+    </div>`:'';
+    let loanRows=[summaryHTML];
     loans.forEach(l=>{
       const sch=getLoanSchedule(l);const entry=sch.find(e=>e.year===curYear&&e.month===curMonth);
       if(!entry)return;
       const pct=num(l.principal)>0?Math.min(100,(1-entry.balance/num(l.principal))*100):0;
       const badge=l.type==='mortgage'?'<span class="loan-badge mortgage">주담대</span>':'<span class="loan-badge other">기타</span>';
-      loanRows.push(`<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+      const excluded=l.excludeFromExpense;
+      const exBadge=excluded?'<span style="font-size:9px;color:var(--accent);background:var(--accent-dim);border:1px solid var(--accent-border);padding:2px 7px;border-radius:99px;margin-left:5px;font-weight:600">급여 선공제 · 이달총액 미반영</span>':'';
+      loanRows.push(`<div style="padding:10px 0;border-bottom:1px solid var(--border);${excluded?'opacity:.72':''}">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
           <span style="font-size:13px;font-weight:600;color:#93c5fd">${l.name}${badge}</span>
-          <span style="font-size:14px;font-weight:700;color:var(--red)">-${fmt(entry.payment)}</span>
+          <span style="font-size:14px;font-weight:700;color:${excluded?'var(--text4)':'var(--red)'}">${excluded?'':'-'}${fmt(entry.payment)}</span>
         </div>
+        ${exBadge?`<div style="margin-bottom:6px">${exBadge}</div>`:''}
         <div style="display:flex;gap:12px;font-size:11px;color:var(--text3);margin-bottom:6px">
           <span>원금 <b style="color:#bfdbfe">${fmt(entry.principal)}</b></span>
           <span>이자 <b style="color:#fca5a5">${fmt(entry.interest)}</b></span>
           <span>${entry.round}차</span>
         </div>
-        <div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:linear-gradient(90deg,#3b82f6,#60a5fa)"></div></div>
-        <div style="font-size:10px;color:var(--text4);margin-top:3px">잔액 ${fmt(entry.balance)} · ${pct.toFixed(1)}% 상환</div>
+        <div class="prog-bar" style="height:11px"><div class="prog-fill" style="width:${pct}%;background:linear-gradient(90deg,#22c55e,#4ade80)"></div></div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px">
+          <span style="font-size:10px;color:#4ade80">✓ ${pct.toFixed(1)}% 상환</span>
+          <span style="font-size:10px;color:var(--text3)">남은 잔액 <b style="color:#93c5fd">${fmt(entry.balance)}</b></span>
+        </div>
       </div>`);
     });
+    const excludedSum=loans.reduce((a,l)=>{if(!l.excludeFromExpense)return a;const sch=getLoanSchedule(l);const e=sch.find(e=>e.year===curYear&&e.month===curMonth);return a+(e?e.payment:0);},0);
     loansEl.innerHTML=loanRows.length>0
-      ?loanRows.join('')+`<div style="padding-top:8px;text-align:right;font-size:12px;color:#60a5fa;font-weight:700">이달 합계: ${fmt(totalLoan)}</div>`
+      ?loanRows.join('')+`<div style="padding-top:8px;text-align:right;font-size:12px;color:#60a5fa;font-weight:700">이달총액 반영 합계: ${fmt(totalLoan)}</div>`+(excludedSum>0?`<div style="text-align:right;font-size:10px;color:var(--text4);margin-top:2px">+ 급여 선공제 ${fmt(excludedSum)} (미반영)</div>`:'')
       :'<div style="color:var(--text4);font-size:13px;text-align:center;padding:8px">이달 해당 상환 없음</div>';
   }else{loansSec.style.display='none';}
 
@@ -1801,6 +2029,7 @@ function renderExpense(){
   const total=exps.reduce((a,e)=>a+num(e.amount),0);
   document.getElementById('e-total').textContent=fmt(total);
   document.getElementById('e-count').textContent=exps.length+'건';
+  renderBudget();
   // 카테고리 도넛
   const eDonutEl=document.getElementById('e-donut');
   if(eDonutEl){
@@ -1828,6 +2057,64 @@ function renderExpense(){
     </div>`;}).join('')+'</div>';
 }
 function setExpFilter(f){expFilter=f;renderExpense();}
+
+// ── 카테고리별 예산 ─────────────────────────────────────────────────────────────
+function getBudget(){return ls('budget:cats')||{};}
+function renderBudget(){
+  const el=document.getElementById('e-budget');
+  if(!el)return;
+  const budget=getBudget();
+  const exps=ls('exp:'+mk())||[];
+  const byCat={};exps.forEach(e=>{byCat[e.cat]=(byCat[e.cat]||0)+num(e.amount);});
+  const setCats=Object.keys(budget).filter(c=>num(budget[c])>0);
+  if(setCats.length===0){
+    el.innerHTML='<div style="text-align:center;color:var(--text4);font-size:12px;padding:14px">예산을 설정하면 카테고리별<br>지출 진행률을 볼 수 있어요 🎯</div>';
+    return;
+  }
+  // 예산 설정된 것 + 지출 있는 것 우선 정렬
+  setCats.sort((a,b)=>(byCat[b]||0)/num(budget[b])-(byCat[a]||0)/num(budget[a]));
+  el.innerHTML=setCats.map(c=>{
+    const cat=CAT_MAP[c]||CAT_MAP.etc;
+    const spent=byCat[c]||0,limit=num(budget[c]);
+    const pct=limit>0?spent/limit*100:0;
+    const over=pct>100;
+    const near=pct>=80&&pct<=100;
+    const color=over?'#f87171':(near?'#f59e0b':'#4ade80');
+    const statusTxt=over?'초과 '+fmt(spent-limit):near?'한도 임박':'여유 '+fmt(limit-spent);
+    return '<div style="margin-bottom:12px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'+
+      '<span style="font-size:12.5px;color:var(--text)">'+cat.icon+' '+cat.label+'</span>'+
+      '<span style="font-size:11px;color:'+color+';font-weight:600">'+fmt(spent)+' / '+fmt(limit)+'</span>'+
+      '</div>'+
+      '<div class="prog-bar"><div class="prog-fill" style="width:'+Math.min(100,pct)+'%;background:'+color+'"></div></div>'+
+      '<div style="display:flex;justify-content:space-between;margin-top:2px">'+
+      '<span style="font-size:9.5px;color:'+color+'">'+(over?'⚠️ ':near?'🔸 ':'✓ ')+statusTxt+'</span>'+
+      '<span style="font-size:9.5px;color:var(--text4)">'+pct.toFixed(0)+'%</span>'+
+      '</div></div>';
+  }).join('');
+}
+function openBudgetModal(){
+  const budget=getBudget();
+  document.getElementById('budget-inputs').innerHTML=CATS.filter(c=>c.id!=='save'&&c.id!=='loan').map(c=>
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'+
+    '<span style="font-size:13px;width:90px;flex-shrink:0">'+c.icon+' '+c.label+'</span>'+
+    '<input type="number" id="bud-'+c.id+'" class="inline-input" style="flex:1;border-bottom:1px solid var(--border2);color:var(--blue);font-weight:600;text-align:right" value="'+(budget[c.id]||'')+'" placeholder="한도 없음"/>'+
+    '<span style="font-size:11px;color:var(--text4)">원</span></div>'
+  ).join('');
+  document.getElementById('budget-overlay').classList.add('show');
+}
+function closeBudgetModal(){document.getElementById('budget-overlay').classList.remove('show');}
+function saveBudget(){
+  const budget={};
+  CATS.filter(c=>c.id!=='save'&&c.id!=='loan').forEach(c=>{
+    const v=document.getElementById('bud-'+c.id);
+    if(v&&num(v.value)>0)budget[c.id]=v.value;
+  });
+  lss('budget:cats',budget);
+  closeBudgetModal();renderBudget();
+  showToast('예산을 저장했어요! ✓');
+}
+
 function openExpModal(id){
   editExpId=id||null;selectedCat='etc';
   document.getElementById('exp-modal-title').textContent=id?'지출 수정':'지출 추가';
@@ -2420,6 +2707,8 @@ function exportData(){
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);const a=document.createElement('a');
   a.href=url;a.download=`가계부_백업_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(url);
+  lss('last-backup',new Date().toISOString());
+  const banner=document.getElementById('h-backup-banner');if(banner)banner.style.display='none';
   showToast('백업 파일 다운로드됐어요! ✓');
 }
 function importData(e){
@@ -2532,6 +2821,45 @@ function ivToggleInflation(){
   if(slider)slider.style.display=ivInflationOn?'block':'none';
   ivCalc();
 }
+// ── 보유 투자자산 ──────────────────────────────────────────────────────────────
+function renderHoldings(){
+  const holdings=ls('invest-holdings')||[];
+  const total=holdings.reduce((a,h)=>a+num(h.value),0);
+  const cost=holdings.reduce((a,h)=>a+num(h.cost),0);
+  const totEl=document.getElementById('iv-hold-total');
+  if(totEl)totEl.textContent=fmt(total);
+  const profEl=document.getElementById('iv-hold-profit');
+  if(profEl){
+    if(cost>0&&total>0){
+      const profit=total-cost;const pct=cost>0?profit/cost*100:0;
+      profEl.innerHTML='<span style="color:'+(profit>=0?'#4ade80':'#f87171')+'">'+(profit>=0?'▲':'▼')+' '+fmt(Math.abs(profit))+' ('+(profit>=0?'+':'')+pct.toFixed(1)+'%)</span> <span style="color:var(--text4)">평가손익</span>';
+    }else profEl.innerHTML='';
+  }
+  const listEl=document.getElementById('iv-hold-list');
+  if(!listEl)return;
+  if(holdings.length===0){listEl.innerHTML='<div style="text-align:center;color:var(--text4);font-size:12px;padding:16px">보유한 주식·펀드·코인을 추가하면<br>순자산에 자동 반영돼요 📊</div>';return;}
+  listEl.innerHTML=holdings.map((h,i)=>{
+    const v=num(h.value),c=num(h.cost);
+    const profit=v-c;const pct=c>0?profit/c*100:0;
+    const oc=(f)=>'updHolding('+i+',\''+f+'\',this.value)';
+    return '<div style="background:var(--card);border:1px solid var(--purple-border);border-radius:12px;padding:13px;margin-bottom:8px">'+
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'+
+      '<input class="inline-input" style="font-size:14px;font-weight:700;color:#c4b5fd;flex:1" value="'+(h.name||'')+'" placeholder="종목명 (예: 삼성전자)" onchange="'+oc('name')+'"/>'+
+      '<button class="icon-btn" onclick="delHolding('+i+')">🗑️</button></div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
+      '<div><div style="font-size:9px;color:var(--text4);margin-bottom:3px">현재 평가액</div>'+
+      '<input type="number" class="inline-input" style="color:#c4b5fd;font-weight:700;border-bottom:1px solid var(--border2)" value="'+(h.value||'')+'" placeholder="0" onchange="'+oc('value')+'"/></div>'+
+      '<div><div style="font-size:9px;color:var(--text4);margin-bottom:3px">매입원금 (선택)</div>'+
+      '<input type="number" class="inline-input" style="color:var(--text3);border-bottom:1px solid var(--border2)" value="'+(h.cost||'')+'" placeholder="0" onchange="'+oc('cost')+'"/></div>'+
+      '</div>'+
+      (c>0?'<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:11px;color:'+(profit>=0?'#4ade80':'#f87171')+'">'+(profit>=0?'▲ 평가이익 ':'▼ 평가손실 ')+fmt(Math.abs(profit))+' ('+(profit>=0?'+':'')+pct.toFixed(1)+'%)</div>':'')+
+      '</div>';
+  }).join('');
+}
+function addHolding(){const h=ls('invest-holdings')||[];h.push({name:'',value:'',cost:''});lss('invest-holdings',h);renderHoldings();renderHome();}
+function updHolding(i,k,v){const h=ls('invest-holdings')||[];h[i][k]=v;lss('invest-holdings',h);renderHoldings();renderHome();}
+function delHolding(i){if(!confirm('삭제할까요?'))return;const h=ls('invest-holdings')||[];h.splice(i,1);lss('invest-holdings',h);renderHoldings();renderHome();}
+
 function ivCalc(){
   const monthly=parseInt(document.getElementById('iv-monthly')?.value||50);
   const years=parseInt(document.getElementById('iv-years')?.value||20);
