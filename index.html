@@ -1064,20 +1064,44 @@ function shareHomeAsImage(){
     const target=document.getElementById(homeView==='monthly'?'view-monthly':'view-annual');
     if(!target){showToast('캡처할 화면이 없어요');return;}
     showToast('📸 이미지 생성 중...');
-    // 캡처 직전 배경/여백 보정용 래퍼
+    // ▼ 플립 카드 캡처 보정: 앞면이 보이도록 강제 고정 + 3D 변환 제거
+    const flipCard=document.getElementById('nw-flip');
+    let flipState=null;
+    if(flipCard){
+      flipState=flipCard.classList.contains('flipped');
+      const inner=flipCard.querySelector('.flip-inner');
+      const front=flipCard.querySelector('.flip-front');
+      const back=flipCard.querySelector('.flip-back');
+      // 캡처용: 앞면만 평면으로 노출
+      flipCard.classList.remove('flipped');
+      if(inner){inner.style.transition='none';inner.style.transform='none';inner.style.height='auto';}
+      if(front){front.style.transform='none';front.style.backfaceVisibility='visible';front.style.position='relative';}
+      if(back){back.style.display='none';} // 뒷면 숨김 (반전 캡처 방지)
+    }
     const bgColor=getComputedStyle(document.body).backgroundColor;
+    const restore=()=>{
+      if(flipCard){
+        const inner=flipCard.querySelector('.flip-inner');
+        const front=flipCard.querySelector('.flip-front');
+        const back=flipCard.querySelector('.flip-back');
+        if(back)back.style.display='';
+        if(front){front.style.transform='';front.style.backfaceVisibility='';front.style.position='';}
+        if(inner){inner.style.transition='';inner.style.transform='';}
+        if(flipState)flipCard.classList.add('flipped');
+        renderHome(); // 높이 재계산
+      }
+    };
     html2canvas(target,{backgroundColor:bgColor,scale:2,useCORS:true,logging:false}).then(canvas=>{
+      restore();
       canvas.toBlob(blob=>{
         if(!blob){showToast('이미지 생성 실패');return;}
         const now=new Date();
         const stamp=now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0');
         const fileName='가계부_'+(homeView==='monthly'?curYear+'년'+curMonth+'월':annualYear+'년_연간')+'_'+stamp+'.png';
         const file=new File([blob],fileName,{type:'image/png'});
-        // 모바일 네이티브 공유 시도 (카카오톡 등으로 바로 전송)
         if(navigator.canShare&&navigator.canShare({files:[file]})){
           navigator.share({files:[file],title:'우리 가계부'}).then(()=>showToast('공유 완료! ✓')).catch(()=>{/* 취소 */});
         }else{
-          // 데스크탑/미지원: 다운로드
           const url=URL.createObjectURL(blob);
           const a=document.createElement('a');a.href=url;a.download=fileName;
           document.body.appendChild(a);a.click();document.body.removeChild(a);
@@ -1085,7 +1109,7 @@ function shareHomeAsImage(){
           showToast('이미지를 저장했어요! ✓');
         }
       },'image/png');
-    }).catch(()=>{showToast('이미지 생성 실패');});
+    }).catch(()=>{restore();showToast('이미지 생성 실패');});
   };
   if(typeof html2canvas!=='undefined'){run();return;}
   showToast('📸 라이브러리 로딩 중...');
@@ -2475,11 +2499,23 @@ function getLoans(){return ls('loans')||[];}
 // 대출 상환 스케줄 (금융계산기 표준)
 // - annuity 원리금균등 / principal 원금균등 / bullet 만기일시
 function getLoanSchedule(loan){
-  const P=num(loan.principal),r=numf(loan.rate)/100/12,n=parseInt(loan.termMonths||0);
+  const P=num(loan.principal),baseRate=numf(loan.rate),n=parseInt(loan.termMonths||0);
   const startY=parseInt(loan.startYear||new Date().getFullYear()),startM=parseInt(loan.startMonth||1);
   if(!P||!n)return[];
   const method=loan.method||'annuity';
   const manualM=loan.manualMonthly?num(loan.manualMonthly):0;
+  // 금리 변동 적용 여부 (rateChanges: [{date:'YYYY-MM', rate:연이율}])
+  const useVarRate=loan.useVarRate&&(loan.rateChanges||[]).length>0;
+  const rateChanges=useVarRate?(loan.rateChanges||[]).filter(rc=>rc.date&&rc.rate!=='').slice().sort((a,b)=>a.date>b.date?1:-1):[];
+  // 특정 연월에 유효한 연이율 반환
+  function rateAt(yr,mo){
+    let eff=baseRate;
+    rateChanges.forEach(rc=>{
+      const[ry,rm]=rc.date.split('-').map(Number);
+      if(yr>ry||(yr===ry&&mo>=rm))eff=numf(rc.rate);
+    });
+    return eff;
+  }
   let balance=P;const schedule=[];
   const prepayments=(loan.prepayments||[]).slice().sort((a,b)=>a.date>b.date?1:-1);
   for(let i=0;i<n;i++){
@@ -2492,6 +2528,7 @@ function getLoanSchedule(loan){
     });
     if(balance<=0)break;
     const remain=n-i;
+    const r=rateAt(yr,mo)/100/12; // 이 달의 월이율 (변동 반영)
     const interest=Math.round(balance*r);
     let actualPrin;
     if(method==='bullet'){
@@ -2499,11 +2536,12 @@ function getLoanSchedule(loan){
     }else if(method==='principal'){
       actualPrin=Math.min(Math.round(balance/remain),balance);
     }else{
+      // 원리금균등: 현재 금리·잔액·잔여기간으로 매달 재계산 (금리 변동 시 자동 반영)
       const M=manualM>0?manualM:(r>0?Math.round(balance*r*Math.pow(1+r,remain)/(Math.pow(1+r,remain)-1)):Math.round(balance/remain));
       actualPrin=Math.min(Math.max(0,M-interest),balance);
     }
     balance=Math.max(0,balance-actualPrin);
-    schedule.push({round:i+1,year:yr,month:mo,payment:actualPrin+interest,interest,principal:actualPrin,balance});
+    schedule.push({round:i+1,year:yr,month:mo,payment:actualPrin+interest,interest,principal:actualPrin,balance,rate:rateAt(yr,mo)});
     if(balance===0)break;
   }
   return schedule;
@@ -2588,6 +2626,36 @@ function renderLoans(){
         </div>
         <button onclick="addLoanPrepay(${idx})" style="font-size:12px;color:var(--blue);background:none;border:1px dashed var(--blue-border);border-radius:8px;padding:6px 12px;cursor:pointer;width:100%;font-family:'Noto Sans KR',sans-serif;margin-bottom:8px">+ 중도상환 추가</button>
       </div>
+      <!-- 금리 변동 -->
+      <div style="border-top:1px solid var(--border2);padding-top:10px;margin-bottom:8px">
+        <div onclick="toggleLoanVarRate(${idx})" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;margin-bottom:8px;cursor:pointer;background:${l.useVarRate?'var(--blue-dim)':'var(--card2)'};border:1px solid ${l.useVarRate?'var(--blue-border)':'var(--border)'}">
+          <span style="flex-shrink:0;width:20px;height:20px;border-radius:5px;border:1px solid ${l.useVarRate?'var(--blue-border)':'var(--border2)'};background:${l.useVarRate?'#60a5fa':'transparent'};color:#0f172a;font-size:12px;display:flex;align-items:center;justify-content:center;font-weight:800">${l.useVarRate?'✓':''}</span>
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:600;color:${l.useVarRate?'#60a5fa':'var(--text2)'}">📉 금리 변동 적용</div>
+            <div style="font-size:10px;color:var(--text4);margin-top:1px">${l.useVarRate?'변동 시점부터 남은 기간 상환액 자동 재계산':'금리 인하·인상 시점과 변경 금리를 입력해요'}</div>
+          </div>
+        </div>
+        ${l.useVarRate?`<div id="loan-rate-${idx}">
+          ${(l.rateChanges||[]).map((rc,ri)=>`<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+            <input type="month" class="inline-input" style="border-bottom:1px solid var(--border2);color:#60a5fa;width:110px" value="${rc.date||''}" onchange="updLoanRate(${idx},${ri},'date',this.value)"/>
+            <input type="number" step="0.01" class="inline-input" style="border-bottom:1px solid var(--border2);color:#93c5fd;flex:1" value="${rc.rate||''}" placeholder="변경 연이율 %" onchange="updLoanRate(${idx},${ri},'rate',this.value)"/>
+            <button class="icon-btn" onclick="delLoanRate(${idx},${ri})" style="font-size:13px">🗑️</button>
+          </div>`).join('')}
+          <button onclick="addLoanRate(${idx})" style="font-size:12px;color:#60a5fa;background:none;border:1px dashed var(--blue-border);border-radius:8px;padding:6px 12px;cursor:pointer;width:100%;font-family:'Noto Sans KR',sans-serif;margin-bottom:4px">+ 금리 변동 추가</button>
+          <div style="font-size:9.5px;color:var(--text4)">💡 최초 금리 ${numf(l.rate).toFixed(2)}%로 시작 → 입력한 시점부터 변경 금리 적용</div>
+        </div>`:''}
+      </div>
+      <!-- 무이자 대출 인정상여 소득세 -->
+      <div style="border-top:1px solid var(--border2);padding-top:10px;margin-bottom:8px">
+        <div onclick="toggleLoanImputed(${idx})" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;margin-bottom:8px;cursor:pointer;background:${l.useImputed?'var(--purple-dim)':'var(--card2)'};border:1px solid ${l.useImputed?'var(--purple-border)':'var(--border)'}">
+          <span style="flex-shrink:0;width:20px;height:20px;border-radius:5px;border:1px solid ${l.useImputed?'var(--purple-border)':'var(--border2)'};background:${l.useImputed?'#a78bfa':'transparent'};color:#0f172a;font-size:12px;display:flex;align-items:center;justify-content:center;font-weight:800">${l.useImputed?'✓':''}</span>
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:600;color:${l.useImputed?'#a78bfa':'var(--text2)'}">🧾 무이자·저리 대출 인정상여 계산</div>
+            <div style="font-size:10px;color:var(--text4);margin-top:1px">${l.useImputed?'법정 기준이율과의 차이를 상여소득으로 계산':'회사 무이자/저리 대출의 세금 영향을 확인해요'}</div>
+          </div>
+        </div>
+        ${l.useImputed?renderImputedCalc(l,idx):''}
+      </div>
       <span class="loan-detail-toggle" id="${tbtnId}" onclick="toggleLoanTable('${tableId}','${tbtnId}')">▼ 상환 스케줄 보기</span>
       <div id="${tableId}" style="display:none;margin-top:8px;overflow-x:auto">
         <table class="loan-table"><thead><tr><th style="text-align:left">차수/날짜</th><th>납입액</th><th>원금</th><th>이자</th><th>잔액</th></tr></thead>
@@ -2600,6 +2668,59 @@ function toggleLoanTable(tblId,btnId){const tbl=document.getElementById(tblId),b
 function addLoanPrepay(idx){const loans=getLoans();if(!loans[idx].prepayments)loans[idx].prepayments=[];loans[idx].prepayments.push({date:'',amount:'',fee:''});lss('loans',loans);renderLoans();renderHome();}
 function updLoanPrepay(idx,pi,k,v){const loans=getLoans();if(!loans[idx].prepayments)loans[idx].prepayments=[];loans[idx].prepayments[pi][k]=v;lss('loans',loans);renderLoans();renderHome();}
 function delLoanPrepay(idx,pi){const loans=getLoans();loans[idx].prepayments.splice(pi,1);lss('loans',loans);renderLoans();renderHome();}
+// 금리 변동
+function toggleLoanVarRate(idx){const loans=getLoans();loans[idx].useVarRate=!loans[idx].useVarRate;if(loans[idx].useVarRate&&!loans[idx].rateChanges)loans[idx].rateChanges=[];lss('loans',loans);renderLoans();renderHome();}
+function addLoanRate(idx){const loans=getLoans();if(!loans[idx].rateChanges)loans[idx].rateChanges=[];loans[idx].rateChanges.push({date:'',rate:''});lss('loans',loans);renderLoans();renderHome();}
+function updLoanRate(idx,ri,k,v){const loans=getLoans();if(!loans[idx].rateChanges)loans[idx].rateChanges=[];loans[idx].rateChanges[ri][k]=v;lss('loans',loans);renderLoans();renderHome();}
+function delLoanRate(idx,ri){const loans=getLoans();loans[idx].rateChanges.splice(ri,1);lss('loans',loans);renderLoans();renderHome();}
+// 무이자 인정상여
+function toggleLoanImputed(idx){const loans=getLoans();loans[idx].useImputed=!loans[idx].useImputed;lss('loans',loans);renderLoans();}
+function updLoanImputed(idx,k,v){const loans=getLoans();loans[idx][k]=v;lss('loans',loans);renderLoans();}
+// 인정상여 계산 UI + 결과
+function renderImputedCalc(l,idx){
+  // 국세청 가중평균차입이자율/당좌대출이자율 기본 4.6%
+  const benchRate=l.imputedBench!==undefined&&l.imputedBench!==''?numf(l.imputedBench):4.6;
+  const actualRate=numf(l.rate)||0; // 실제 적용 금리 (무이자면 0)
+  // 계산 기준: 'balance'(현재잔액, 기본) 또는 'principal'(대출원금)
+  const basis=l.imputedBasis||'balance';
+  const sch=getLoanSchedule(l);
+  let curBal=num(l.principal);
+  const past=sch.filter(e=>e.year<curYear||(e.year===curYear&&e.month<=curMonth));
+  if(past.length>0)curBal=past[past.length-1].balance;
+  const baseAmt=basis==='principal'?num(l.principal):curBal;
+  // 인정이자 = 기준금액 × (기준이율 − 실제이율) (연간)
+  const rateDiff=Math.max(0,benchRate-actualRate);
+  const imputedYear=Math.round(baseAmt*rateDiff/100);
+  const imputedMonth=Math.round(imputedYear/12);
+  const taxRate=l.imputedTaxRate!==undefined&&l.imputedTaxRate!==''?numf(l.imputedTaxRate):16.5;
+  const taxYear=Math.round(imputedYear*taxRate/100);
+  return `<div style="background:linear-gradient(135deg,#1a1030,#241640);border:1px solid var(--purple-border);border-radius:10px;padding:13px">
+    <div style="margin-bottom:10px">
+      <div style="font-size:9px;color:var(--text4);margin-bottom:5px">계산 기준 금액</div>
+      <div style="display:flex;gap:6px">
+        <button onclick="updLoanImputed(${idx},'imputedBasis','balance')" style="flex:1;font-size:11px;padding:7px;border-radius:8px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;font-weight:600;border:1px solid ${basis==='balance'?'var(--purple-border)':'var(--border2)'};background:${basis==='balance'?'var(--purple-dim)':'transparent'};color:${basis==='balance'?'#c4b5fd':'var(--text3)'}">현재 잔액</button>
+        <button onclick="updLoanImputed(${idx},'imputedBasis','principal')" style="flex:1;font-size:11px;padding:7px;border-radius:8px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;font-weight:600;border:1px solid ${basis==='principal'?'var(--purple-border)':'var(--border2)'};background:${basis==='principal'?'var(--purple-dim)':'transparent'};color:${basis==='principal'?'#c4b5fd':'var(--text3)'}">대출 원금</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div><div style="font-size:9px;color:var(--text4);margin-bottom:3px">법정 기준이율 (%)</div>
+        <input type="number" step="0.1" class="inline-input" style="color:#c4b5fd;font-weight:700;border-bottom:1px solid var(--border2)" value="${l.imputedBench!==undefined?l.imputedBench:'4.6'}" placeholder="4.6" onchange="updLoanImputed(${idx},'imputedBench',this.value)"/></div>
+      <div><div style="font-size:9px;color:var(--text4);margin-bottom:3px">실제 적용금리 (%)</div>
+        <div style="font-size:14px;font-weight:700;color:var(--text2);padding:2px 0">${actualRate.toFixed(2)}% <span style="font-size:9px;color:var(--text4)">(대출금리)</span></div></div>
+      <div><div style="font-size:9px;color:var(--text4);margin-bottom:3px">본인 한계세율 (%)</div>
+        <input type="number" step="0.1" class="inline-input" style="color:#c4b5fd;font-weight:700;border-bottom:1px solid var(--border2)" value="${l.imputedTaxRate!==undefined?l.imputedTaxRate:'16.5'}" placeholder="16.5" onchange="updLoanImputed(${idx},'imputedTaxRate',this.value)"/></div>
+      <div><div style="font-size:9px;color:var(--text4);margin-bottom:3px">${basis==='principal'?'대출 원금':'현재 잔액'}</div>
+        <div style="font-size:13px;font-weight:700;color:#93c5fd;padding:2px 0">${fmt(baseAmt)}</div></div>
+    </div>
+    <div style="border-top:1px solid var(--purple-border);padding-top:10px;font-size:12px;line-height:2">
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">이율 차이 (기준−실제)</span><b style="color:#c4b5fd">${rateDiff.toFixed(2)}%p</b></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">연간 인정상여 (인정이자)</span><b style="color:#a78bfa">${fmt(imputedYear)}</b></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">월 환산</span><b style="color:#a78bfa">${fmt(imputedMonth)}</b></div>
+      <div style="display:flex;justify-content:space-between;border-top:1px solid var(--purple-border);padding-top:4px;margin-top:2px"><span style="color:var(--text);font-weight:700">예상 추가 세금 (연)</span><b style="color:#f87171;font-size:13px">${fmt(taxYear)}</b></div>
+    </div>
+    <div style="font-size:9px;color:var(--text4);margin-top:8px;line-height:1.6">💡 무이자/저리 사내대출은 (법정 기준이율 − 실제금리) × 기준금액이 <b>인정상여(근로소득)</b>로 과세돼요. 기준이율은 국세청 고시(당좌대출이자율, 통상 4.6%) 기준이며, 실제 세액은 연말정산 시 확정돼요.</div>
+  </div>`;
+}
 function openLoanModal(idx){
   editLoanId=(idx!==undefined)?idx:null;
   document.getElementById('loan-modal-title').textContent=(idx!==undefined)?'대출 수정':'대출 추가';
