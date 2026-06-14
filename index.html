@@ -256,6 +256,8 @@ body::before{content:'';position:fixed;top:-120px;left:50%;transform:translateX(
 /* ── 접근성 / 모션 감소 ── */
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important}}
+/* 탭 상단 월 배지 */
+.tab-month-badge{font-size:11px;font-weight:700;color:var(--accent);background:var(--accent-dim);border:1px solid var(--accent-border);border-radius:99px;padding:3px 10px;cursor:pointer;white-space:nowrap}
 /* 순자산 플립 카드 */
 .flip-card{margin:10px 16px 0;perspective:1600px;cursor:pointer}
 .flip-inner{position:relative;width:100%;transition:transform .6s cubic-bezier(.4,0,.2,1);transform-style:preserve-3d}
@@ -350,6 +352,16 @@ body::before{content:'';position:fixed;top:-120px;left:50%;transform:translateX(
           <div style="font-size:30px;font-weight:800;letter-spacing:-.03em;color:#93c5fd" id="h-asset-total-back">0원</div>
           <div id="h-asset-detail" style="margin-top:12px"></div>
         </div>
+      </div>
+    </div>
+    <!-- 적금 요약 sub 카드 -->
+    <div id="h-savings-wrap" style="margin:10px 16px 0;display:none">
+      <div style="background:linear-gradient(135deg,#0d2010,#15321c);border:1px solid var(--green-border);border-radius:16px;padding:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <span style="font-size:11px;color:#4ade80;font-weight:600">🏦 적금 현황</span>
+          <span style="font-size:10px;color:var(--text4)" id="h-sav-count"></span>
+        </div>
+        <div id="h-savings-list"></div>
       </div>
     </div>
     <!-- 비상금 지표 -->
@@ -566,7 +578,7 @@ body::before{content:'';position:fixed;top:-120px;left:50%;transform:translateX(
 
 <!-- ══ SAVINGS ════════════════════════════════════════════════════════════════ -->
 <div id="page-savings" class="page">
-  <div class="top-bar"><span class="page-title">🏦 적금 관리</span><button class="add-btn" onclick="addSaving()">+ 추가</button></div>
+  <div class="top-bar"><div style="display:flex;align-items:center;gap:8px"><span class="page-title">🏦 적금 관리</span><span class="tab-month-badge" id="sav-month-badge" onclick="openDatePicker()"></span></div><button class="add-btn" onclick="addSaving()">+ 추가</button></div>
   <div style="margin:0 16px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
     <div style="background:linear-gradient(135deg,#0d2010,#1a3a20);border:1px solid var(--green-border);border-radius:14px;padding:14px">
       <div style="font-size:10px;color:#4ade80;margin-bottom:4px;font-weight:600">💸 이번달 납입 합계</div>
@@ -585,7 +597,7 @@ body::before{content:'';position:fixed;top:-120px;left:50%;transform:translateX(
 
 <!-- ══ DEPOSIT ════════════════════════════════════════════════════════════════ -->
 <div id="page-deposit" class="page">
-  <div class="top-bar"><span class="page-title">💎 예금 관리</span><button class="add-btn" onclick="addDeposit()">+ 추가</button></div>
+  <div class="top-bar"><div style="display:flex;align-items:center;gap:8px"><span class="page-title">💎 예금 관리</span><span class="tab-month-badge" id="dep-month-badge" onclick="openDatePicker()"></span></div><button class="add-btn" onclick="addDeposit()">+ 추가</button></div>
   <div style="margin:0 16px">
     <div style="background:linear-gradient(135deg,#0a1a2e,#0d2a4a);border:1px solid var(--blue-border);border-radius:14px;padding:16px">
       <div style="font-size:11px;color:#7dd3fc;margin-bottom:4px">총 예금 원금</div>
@@ -598,7 +610,7 @@ body::before{content:'';position:fixed;top:-120px;left:50%;transform:translateX(
 
 <!-- ══ LOAN ════════════════════════════════════════════════════════════════ -->
 <div id="page-loan" class="page">
-  <div class="top-bar"><span class="page-title">🏛️ 대출 관리</span><button class="add-btn" onclick="openLoanModal()">+ 추가</button></div>
+  <div class="top-bar"><div style="display:flex;align-items:center;gap:8px"><span class="page-title">🏛️ 대출 관리</span><span class="tab-month-badge" id="loan-month-badge" onclick="openDatePicker()"></span></div><button class="add-btn" onclick="openLoanModal()">+ 추가</button></div>
   <div style="margin:0 16px">
     <div style="background:linear-gradient(135deg,var(--blue-dim),#1a3a5f);border:1px solid var(--blue-border);border-radius:14px;padding:16px;display:flex;justify-content:space-between;align-items:center">
       <div><div style="font-size:11px;color:var(--blue);margin-bottom:4px">이달 대출 상환</div><div style="font-size:26px;font-weight:900;color:#93c5fd" id="ln-monthly-total">0원</div></div>
@@ -636,7 +648,7 @@ body::before{content:'';position:fixed;top:-120px;left:50%;transform:translateX(
 
 <!-- ══ INVEST ═══════════════════════════════════════════════════════════════ -->
 <div id="page-invest" class="page">
-  <div class="top-bar"><span class="page-title">📈 투자 관리</span></div>
+  <div class="top-bar"><div style="display:flex;align-items:center;gap:8px"><span class="page-title">📈 투자 관리</span><span class="tab-month-badge" id="inv-month-badge" onclick="openDatePicker()"></span></div></div>
 
   <!-- 실제 보유 투자자산 -->
   <div style="margin:0 16px 16px">
@@ -1227,6 +1239,11 @@ function updateMonthLabels(){
   if(fmo)fmo.textContent=MONTHS[curMonth-1]+' 지출 체크';
   const lnl=document.getElementById('ln-cur-month-label');
   if(lnl)lnl.textContent=curYear+'년 '+MONTHS[curMonth-1]+' 기준';
+  // 적금·예금·대출·투자 탭 상단 월 배지
+  const badgeText='📅 '+curYear+'.'+String(curMonth).padStart(2,'0')+' 기준';
+  ['sav-month-badge','dep-month-badge','loan-month-badge','inv-month-badge'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.textContent=badgeText;
+  });
 }
 
 // ── MINI LINE GRAPH ───────────────────────────────────────────────────────────
@@ -1486,6 +1503,39 @@ function renderHome(){
       '월 지출 <b style="color:var(--text)">'+fmtShort2(monthlyBurn)+'</b> 기준 <b style="color:'+color+'">'+months.toFixed(1)+'개월</b> 버틸 수 있어요<br>'+
       '<span style="color:'+color+'">'+grade+'</span> <span style="color:var(--text4)">(권장 6개월)</span>';
   }else{emWrap.style.display='none';}
+
+  // 적금 요약 sub 카드 (활성 적금만)
+  const savWrap=document.getElementById('h-savings-wrap');
+  const savListEl=document.getElementById('h-savings-list');
+  if(savWrap&&savListEl){
+    const activeSavs=configs_.filter(cfg=>{
+      if(!cfg.startDate)return false;
+      const cum=getSavingCumulative(cfg,curYear,curMonth);
+      return cum>0||num(cfg.monthlyAmount)>0;
+    });
+    if(activeSavs.length>0){
+      savWrap.style.display='block';
+      document.getElementById('h-sav-count').textContent=activeSavs.length+'개 · 누적 '+fmtShort2(savTotal);
+      savListEl.innerHTML=activeSavs.map((cfg,idx)=>{
+        const cum=getSavingCumulative(cfg,curYear,curMonth);
+        const goal=num(cfg.goal);
+        const pct=goal>0?Math.min(100,cum/goal*100):0;
+        const round=getSavingRound(cfg,curYear,curMonth);
+        const roundLabel=round&&!round.before&&round.cur>0?(round.total>0?round.cur+'/'+round.total+'회차':round.cur+'회차'):'';
+        const isLast=idx===activeSavs.length-1;
+        return '<div style="display:flex;align-items:center;gap:11px;padding:9px 0;'+(isLast?'':'border-bottom:1px solid rgba(74,222,128,.12)')+'">'+
+          (goal>0?svgRing(pct,'#4ade80',44,pct.toFixed(0)+'%'):'<span style="font-size:22px;flex-shrink:0">🏦</span>')+
+          '<div style="flex:1;min-width:0">'+
+          '<div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(cfg.name||'적금')+'</div>'+
+          '<div style="font-size:10px;color:var(--text3);margin-top:1px">'+(roundLabel?'📆 '+roundLabel+' · ':'')+'월 '+fmtShort2(num(cfg.monthlyAmount))+'</div>'+
+          '</div>'+
+          '<div style="text-align:right;flex-shrink:0">'+
+          '<div style="font-size:13px;font-weight:700;color:#4ade80">'+fmt(cum)+'</div>'+
+          (goal>0?'<div style="font-size:9px;color:var(--text4)">목표 '+fmtShort2(goal)+'</div>':'')+
+          '</div></div>';
+      }).join('');
+    }else{savWrap.style.display='none';}
+  }
 
   // 지출 분류
   const catSec=document.getElementById('h-cats-section'),catEl=document.getElementById('h-cats');
@@ -3079,6 +3129,32 @@ function renderHoldings(){
             '<span style="font-size:10px;font-weight:700;color:'+(up?'#4ade80':'#f87171')+';width:54px;text-align:right;flex-shrink:0">'+(up?'+':'')+pc.toFixed(1)+'%</span>'+
             '</div>';
         }).join('')+
+        // 종목별 원금 vs 평가액 비교 그래프
+        '<div style="font-size:9px;color:var(--text4);margin-bottom:8px;margin-top:16px">종목별 원금 대비 평가액</div>'+
+        (()=>{
+          const gmax=Math.max(...withCost.map(h=>Math.max(num(h.value),num(h.cost))));
+          return withCost.map(h=>{
+            const v=num(h.value),c=num(h.cost);
+            const p=v-c;const up=p>=0;
+            const cW=gmax>0?c/gmax*100:0;
+            const vW=gmax>0?v/gmax*100:0;
+            return '<div style="margin-bottom:11px">'+
+              '<div style="display:flex;justify-content:space-between;margin-bottom:4px">'+
+              '<span style="font-size:11px;color:var(--text2);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%">'+(h.name||'종목')+'</span>'+
+              '<span style="font-size:10px;color:'+(up?'#4ade80':'#f87171')+';font-weight:700">'+(up?'+':'')+fmt(p)+'</span></div>'+
+              // 원금 막대 (회색)
+              '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">'+
+              '<span style="font-size:8px;color:var(--text4);width:30px;flex-shrink:0">원금</span>'+
+              '<div style="flex:1;height:11px;background:var(--prog-bg);border-radius:6px;overflow:hidden"><div style="width:'+cW.toFixed(1)+'%;height:100%;background:#64748b;border-radius:6px;min-width:3px"></div></div>'+
+              '<span style="font-size:9px;color:var(--text3);width:52px;text-align:right;flex-shrink:0">'+fmtShort2(c)+'</span></div>'+
+              // 평가액 막대 (손익 색상)
+              '<div style="display:flex;align-items:center;gap:6px">'+
+              '<span style="font-size:8px;color:var(--text4);width:30px;flex-shrink:0">평가</span>'+
+              '<div style="flex:1;height:11px;background:var(--prog-bg);border-radius:6px;overflow:hidden"><div style="width:'+vW.toFixed(1)+'%;height:100%;background:linear-gradient(90deg,'+(up?'#22c55e,#4ade80':'#dc2626,#f87171')+');border-radius:6px;min-width:3px"></div></div>'+
+              '<span style="font-size:9px;color:'+(up?'#4ade80':'#f87171')+';font-weight:600;width:52px;text-align:right;flex-shrink:0">'+fmtShort2(v)+'</span></div>'+
+              '</div>';
+          }).join('');
+        })()+
         '</div>';
     }else{chartEl.style.display='none';}
   }
