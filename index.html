@@ -216,6 +216,9 @@ body::before{content:'';position:fixed;top:-120px;left:50%;transform:translateX(
 .theme-opt{flex:1;padding:6px 0;border-radius:99px;text-align:center;font-size:11px;font-weight:600;cursor:pointer;border:none;background:none;color:var(--text3);font-family:inherit;transition:all .25s}
 .theme-opt.active{background:var(--accent);color:#0f172a;font-weight:700}
 .sw{position:relative;width:46px;height:25px;flex-shrink:0}
+/* 프라이버시 모드: 입력칸 숫자 가리기 */
+body.privacy-on input[type="number"]{-webkit-text-security:disc;text-security:disc;color:var(--text3)!important}
+body.privacy-on input[type="number"]::placeholder{-webkit-text-security:none}
 .sw input{opacity:0;width:0;height:0}
 .sw-slider{position:absolute;cursor:pointer;inset:0;background:var(--border2);border-radius:99px;transition:.3s}
 .sw-slider:before{position:absolute;content:"";width:19px;height:19px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s cubic-bezier(.34,1.56,.64,1);box-shadow:0 1px 3px rgba(0,0,0,.3)}
@@ -802,6 +805,18 @@ body::before{content:'';position:fixed;top:-120px;left:50%;transform:translateX(
 <div id="page-settings" class="page">
   <div class="top-bar"><span class="page-title">⚙️ 설정</span></div>
   <div class="settings-section">
+    <div class="settings-title">🔒 보안</div>
+    <div class="card">
+      <div class="settings-item">
+        <div style="flex:1"><div class="settings-item-label">🙈 프라이버시 모드</div><div class="settings-item-sub">켜면 모든 금액이 별표(***)로 가려져요.<br>그래프·기능은 그대로 보여서 화면 공유에 좋아요.</div></div>
+        <label class="sw">
+          <input type="checkbox" id="privacy-toggle" onchange="togglePrivacy()"/>
+          <span class="sw-slider"></span>
+        </label>
+      </div>
+    </div>
+  </div>
+  <div class="settings-section">
     <div class="settings-title">🎨 화면 테마</div>
     <div class="card">
       <div class="settings-item">
@@ -981,12 +996,13 @@ let curYear=new Date().getFullYear(), curMonth=new Date().getMonth()+1;
 let curTab='home', homeView='monthly', annualYear=new Date().getFullYear();
 let editExpId=null, editLoanId=null, selectedCat='etc', expFilter='all';
 let dpYear=curYear;
+let privacyMode=false; // 프라이버시 모드 (금액 별표 처리)
 
 // ── STORAGE ───────────────────────────────────────────────────────────────────
 function mk(y,m){return `${y??curYear}-${String(m??curMonth).padStart(2,'0')}`;}
 function ls(k){try{return JSON.parse(localStorage.getItem(k));}catch{return null;}}
 function lss(k,v){localStorage.setItem(k,JSON.stringify(v));}
-function fmt(n){return Number(n||0).toLocaleString('ko-KR')+'원';}
+function fmt(n){return privacyMode?'•••원':Number(n||0).toLocaleString('ko-KR')+'원';}
 function num(s){return parseInt(String(s||'0').replace(/[^0-9]/g,''),10)||0;}
 function numf(s){return parseFloat(String(s||'0'))||0;}
 function today(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
@@ -1209,6 +1225,7 @@ function flowBar(segs){
 }
 
 function fmtShort2(n){
+  if(privacyMode)return '•••';
   if(n>=100000000)return (n/100000000).toFixed(1)+'억';
   if(n>=10000000)return Math.round(n/10000000)/10*10+'천만';
   if(n>=10000)return Math.round(n/10000)+'만';
@@ -2977,6 +2994,17 @@ function renderSettings(){
   const t=ls('theme')||'dark';
   const ps=document.getElementById('pastel-theme-section');
   if(ps)ps.style.display=t!=='dark'?'block':'none';
+  // 프라이버시 토글 상태 복원
+  const pt=document.getElementById('privacy-toggle');
+  if(pt)pt.checked=privacyMode;
+}
+function togglePrivacy(){
+  privacyMode=!privacyMode;
+  lss('privacy-mode',privacyMode);
+  document.body.classList.toggle('privacy-on',privacyMode);
+  renderAll();
+  if(privacyMode)showToast('🙈 프라이버시 모드 ON — 금액이 가려져요');
+  else showToast('👁️ 프라이버시 모드 OFF');
 }
 
 function exportData(){
@@ -3371,6 +3399,8 @@ function importImageFile(event){
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
+privacyMode=ls('privacy-mode')===true; // 프라이버시 모드 복원
+if(privacyMode)document.body.classList.add('privacy-on');
 loadTheme();
 renderAll();
 
