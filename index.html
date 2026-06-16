@@ -162,6 +162,7 @@ body::before{content:'';position:fixed;top:-120px;left:50%;transform:translateX(
 
 /* ── 모달: 드래그 핸들 시그니처 ── */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:flex-end;z-index:200;opacity:0;pointer-events:none;transition:opacity .22s}
+#catedit-overlay{z-index:300;background:rgba(0,0,0,.9)}
 .overlay.show{opacity:1;pointer-events:all}
 .modal{background:var(--card);border-radius:24px 24px 0 0;padding:14px 20px 40px;width:100%;max-height:92vh;overflow-y:auto;border:1px solid var(--border2);border-bottom:none;transform:translateY(48px);transition:transform .3s cubic-bezier(.22,1,.36,1)}
 .modal::before{content:'';display:block;width:40px;height:4px;border-radius:99px;background:var(--border2);margin:0 auto 18px}
@@ -966,6 +967,25 @@ body.privacy-on input[type="number"]::placeholder{-webkit-text-security:none}
   </div>
 </div>
 
+<!-- CATEGORY EDIT MODAL -->
+<div class="overlay" id="catedit-overlay" onclick="closeCatEdit(event)">
+  <div class="modal">
+    <div class="modal-title">✏️ 카테고리 편집</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:14px">이름과 아이콘을 바꿀 수 있어요. 기존에 기록한 지출은 그대로 유지돼요.</div>
+    <div style="display:flex;justify-content:center;margin-bottom:14px">
+      <div id="catedit-preview" style="width:80px;height:80px;border-radius:16px;background:var(--card2);border:1px solid var(--border2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px"></div>
+    </div>
+    <div class="field"><label>아이콘 (이모지)</label><input type="text" id="catedit-icon" maxlength="2" placeholder="🍚" oninput="updateCatPreview()" style="text-align:center;font-size:22px"/></div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px" id="catedit-emoji-picker"></div>
+    <div class="field"><label>이름</label><input type="text" id="catedit-label" maxlength="8" placeholder="카테고리 이름" oninput="updateCatPreview()"/></div>
+    <div class="btn-row">
+      <button class="btn btn-cancel" onclick="resetCatEdit()" style="flex:0 0 auto;padding-left:16px;padding-right:16px">🔄 기본값</button>
+      <button class="btn btn-cancel" onclick="closeCatEdit()">취소</button>
+      <button class="btn btn-save" onclick="saveCatEdit()">저장</button>
+    </div>
+  </div>
+</div>
+
 <!-- LOAN MODAL -->
 <div class="overlay" id="loan-overlay" onclick="closeLoanModal(event)">
   <div class="modal">
@@ -1018,7 +1038,7 @@ body.privacy-on input[type="number"]::placeholder{-webkit-text-security:none}
 </div>
 
 <script>
-const CATS=[
+const CATS_DEFAULT=[
   {id:'loan',label:'대출/금융',icon:'🏦',color:'#ef4444'},
   {id:'ins',label:'보험',icon:'🛡️',color:'#f97316'},
   {id:'food',label:'식비',icon:'🍚',color:'#eab308'},
@@ -1032,7 +1052,17 @@ const CATS=[
   {id:'shop',label:'쇼핑',icon:'🛍️',color:'#a78bfa'},
   {id:'etc',label:'기타',icon:'📦',color:'#94a3b8'},
 ];
-const CAT_MAP=Object.fromEntries(CATS.map(c=>[c.id,c]));
+// 사용자 커스텀(이름·아이콘)을 덮어쓴 카테고리 반환
+function getCats(){
+  const custom=ls('cat-custom')||{};
+  return CATS_DEFAULT.map(c=>{
+    const u=custom[c.id]||{};
+    return {...c,label:u.label||c.label,icon:u.icon||c.icon};
+  });
+}
+let CATS=getCats();
+let CAT_MAP=Object.fromEntries(CATS.map(c=>[c.id,c]));
+function refreshCats(){CATS=getCats();CAT_MAP=Object.fromEntries(CATS.map(c=>[c.id,c]));}
 const MONTHS=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
 
 let curYear=new Date().getFullYear(), curMonth=new Date().getMonth()+1;
@@ -2501,7 +2531,7 @@ function saveBudget(){
 function openExpModal(id){
   editExpId=id||null;selectedCat='etc';
   document.getElementById('exp-modal-title').textContent=id?'지출 수정':'지출 추가';
-  document.getElementById('exp-cats').innerHTML=CATS.map(c=>`<button class="cat-btn" id="cat-${c.id}" onclick="selectCat('${c.id}')">${c.icon}<br>${c.label}</button>`).join('');
+  document.getElementById('exp-cats').innerHTML=CATS.map(c=>`<button class="cat-btn" id="cat-${c.id}" onclick="selectCat('${c.id}')" oncontextmenu="event.preventDefault();openCatEdit('${c.id}')" ontouchstart="catPressStart('${c.id}')" ontouchend="catPressEnd()" ontouchmove="catPressEnd()" onmousedown="catPressStart('${c.id}')" onmouseup="catPressEnd()" onmouseleave="catPressEnd()">${c.icon}<br>${c.label}</button>`).join('');
   // 예산형 고정항목 드롭다운 채우기
   const fixed=(ls('budget:fixed')||getDefaultFixed()).filter(f=>f.isBudget&&isFxActive(f,curYear,curMonth));
   const budgetField=document.getElementById('exp-budget-field');
@@ -2523,6 +2553,71 @@ function selectCat(id){
     if(c.id===id)btn.style.cssText=`background:${c.color}33;color:${c.color};border-color:${c.color};font-weight:700`;
     else btn.style.cssText='';});
 }
+// ── 카테고리 롱프레스 편집 ──────────────────────────────────────────────────────
+let catPressTimer=null, catEditId=null, catPressMoved=false;
+function catPressStart(id){
+  catPressMoved=false;
+  catPressTimer=setTimeout(()=>{
+    if(!catPressMoved){
+      if(navigator.vibrate)navigator.vibrate(30);
+      openCatEdit(id);
+    }
+  },550); // 0.55초 꾹 누르면 편집
+}
+function catPressEnd(){catPressMoved=true;if(catPressTimer){clearTimeout(catPressTimer);catPressTimer=null;}}
+const CAT_EMOJI_SET=['🍚','🍽️','🍔','☕','🛒','🛍️','🏦','💳','🛡️','🚌','🚗','⛽','📱','💻','💊','🏥','📚','✏️','🎁','🎉','🏠','💡','💰','📈','👶','🐶','✈️','🎮','💄','🧾','📦','❤️'];
+function openCatEdit(id){
+  catEditId=id;
+  const c=(getCats()).find(x=>x.id===id);if(!c)return;
+  document.getElementById('catedit-icon').value=c.icon;
+  document.getElementById('catedit-label').value=c.label;
+  // 이모지 픽커
+  document.getElementById('catedit-emoji-picker').innerHTML=CAT_EMOJI_SET.map(e=>
+    `<button onclick="pickCatEmoji('${e}')" style="width:38px;height:38px;border-radius:9px;border:1px solid var(--border2);background:var(--card2);font-size:19px;cursor:pointer">${e}</button>`
+  ).join('');
+  updateCatPreview();
+  document.getElementById('catedit-overlay').classList.add('show');
+}
+function pickCatEmoji(e){document.getElementById('catedit-icon').value=e;updateCatPreview();}
+function updateCatPreview(){
+  const icon=document.getElementById('catedit-icon').value||'❓';
+  const label=document.getElementById('catedit-label').value||'이름';
+  const c=CATS_DEFAULT.find(x=>x.id===catEditId);
+  const color=c?c.color:'#94a3b8';
+  document.getElementById('catedit-preview').innerHTML=
+    `<span style="font-size:30px">${icon}</span><span style="font-size:12px;font-weight:700;color:${color}">${label}</span>`;
+}
+function saveCatEdit(){
+  const icon=document.getElementById('catedit-icon').value.trim();
+  const label=document.getElementById('catedit-label').value.trim();
+  if(!label){alert('이름을 입력해주세요');return;}
+  const custom=ls('cat-custom')||{};
+  const def=CATS_DEFAULT.find(x=>x.id===catEditId);
+  // 기본값과 같으면 커스텀 제거, 다르면 저장
+  const entry={};
+  if(label&&label!==def.label)entry.label=label;
+  if(icon&&icon!==def.icon)entry.icon=icon;
+  if(Object.keys(entry).length>0)custom[catEditId]=entry;
+  else delete custom[catEditId];
+  lss('cat-custom',custom);
+  refreshCats();
+  document.getElementById('catedit-overlay').classList.remove('show');
+  // 열려있는 지출 모달의 카테고리 버튼 갱신
+  if(document.getElementById('exp-overlay').classList.contains('show')){
+    document.getElementById('exp-cats').innerHTML=CATS.map(c=>`<button class="cat-btn" id="cat-${c.id}" onclick="selectCat('${c.id}')" oncontextmenu="event.preventDefault();openCatEdit('${c.id}')" ontouchstart="catPressStart('${c.id}')" ontouchend="catPressEnd()" ontouchmove="catPressEnd()" onmousedown="catPressStart('${c.id}')" onmouseup="catPressEnd()" onmouseleave="catPressEnd()">${c.icon}<br>${c.label}</button>`).join('');
+    selectCat(selectedCat);
+  }
+  renderExpense();renderHome();
+  showToast('카테고리를 변경했어요! ✓');
+}
+function resetCatEdit(){
+  const def=CATS_DEFAULT.find(x=>x.id===catEditId);
+  if(!def)return;
+  document.getElementById('catedit-icon').value=def.icon;
+  document.getElementById('catedit-label').value=def.label;
+  updateCatPreview();
+}
+function closeCatEdit(e){if(e&&e.target!==document.getElementById('catedit-overlay'))return;document.getElementById('catedit-overlay').classList.remove('show');}
 function closeExpModal(e){if(e&&e.target!==document.getElementById('exp-overlay'))return;document.getElementById('exp-overlay').classList.remove('show');}
 function saveExp(){
   const name=document.getElementById('exp-name').value.trim(),amount=document.getElementById('exp-amount').value;
