@@ -1027,8 +1027,8 @@ const CATS=[
   {id:'med',label:'의료',icon:'💊',color:'#3b82f6'},
   {id:'edu',label:'교육',icon:'📚',color:'#8b5cf6'},
   {id:'gift',label:'경조사',icon:'🎁',color:'#ec4899'},
-  {id:'par',label:'부모님',icon:'👨‍👩‍👧',color:'#f43f5e'},
-  {id:'save',label:'적금',icon:'💰',color:'#10b981'},
+  {id:'par',label:'외식',icon:'🍽️',color:'#f43f5e'},
+  {id:'save',label:'생활비',icon:'🛒',color:'#10b981'},
   {id:'shop',label:'쇼핑',icon:'🛍️',color:'#a78bfa'},
   {id:'etc',label:'기타',icon:'📦',color:'#94a3b8'},
 ];
@@ -2478,7 +2478,7 @@ function renderBudget(){
 }
 function openBudgetModal(){
   const budget=getBudget();
-  document.getElementById('budget-inputs').innerHTML=CATS.filter(c=>c.id!=='save'&&c.id!=='loan').map(c=>
+  document.getElementById('budget-inputs').innerHTML=CATS.filter(c=>c.id!=='loan').map(c=>
     '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'+
     '<span style="font-size:13px;width:90px;flex-shrink:0">'+c.icon+' '+c.label+'</span>'+
     '<input type="number" id="bud-'+c.id+'" class="inline-input" style="flex:1;border-bottom:1px solid var(--border2);color:var(--blue);font-weight:600;text-align:right" value="'+(budget[c.id]||'')+'" placeholder="한도 없음"/>'+
@@ -2489,7 +2489,7 @@ function openBudgetModal(){
 function closeBudgetModal(){document.getElementById('budget-overlay').classList.remove('show');}
 function saveBudget(){
   const budget={};
-  CATS.filter(c=>c.id!=='save'&&c.id!=='loan').forEach(c=>{
+  CATS.filter(c=>c.id!=='loan').forEach(c=>{
     const v=document.getElementById('bud-'+c.id);
     if(v&&num(v.value)>0)budget[c.id]=v.value;
   });
