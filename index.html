@@ -90,7 +90,7 @@ body::before{content:'';position:fixed;top:-120px;left:50%;transform:translateX(
 .subtab.active{background:var(--accent);color:#0f172a;border-color:var(--accent);font-weight:700}
 .nav-btn:active{transform:scale(.9)}
 .nav-icon{font-size:20px;transition:transform .3s cubic-bezier(.34,1.56,.64,1);opacity:.62}
-.nav-label{font-size:9px;font-weight:500;color:var(--text3);transition:color .2s;letter-spacing:.02em}
+.nav-label{font-size:8.5px;font-weight:500;color:var(--text3);transition:color .2s;letter-spacing:0;white-space:nowrap}
 .nav-btn.active .nav-icon{transform:translateY(-3px) scale(1.22);opacity:1}
 .nav-btn.active .nav-label{color:var(--accent);font-weight:700}
 .nav-btn.active::after{content:'';position:absolute;bottom:0;width:16px;height:3px;border-radius:99px;background:var(--accent);box-shadow:0 0 8px var(--accent-border)}
@@ -842,9 +842,40 @@ body.privacy-on input[type="number"]::placeholder{-webkit-text-security:none}
   </div>
 </div>
 
+<!-- ══ 연말정산 시뮬레이션 ════════════════════════════════════════════════════════ -->
+<div id="page-taxsim" class="page">
+  <div class="top-bar"><span class="page-title">🧾 연말정산 시뮬레이션</span></div>
+  <div style="padding:0 16px">
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px;line-height:1.6">실제 원천징수영수증과 동일한 항목으로 계산해요. 사람별로 따로 입력하고, 연간 수입·대출 데이터를 자동으로 불러와요.</div>
+    <!-- 연도 + 대상자 선택 -->
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <select id="tax-year" onchange="renderTaxSim()" style="flex:1;background:var(--card2);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-size:13px;padding:10px;font-family:inherit"></select>
+      <select id="tax-person" onchange="renderTaxSim()" style="flex:1;background:var(--card2);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-size:13px;padding:10px;font-family:inherit">
+        <option value="me">본인</option>
+        <option value="sp">배우자</option>
+      </select>
+    </div>
+    <div id="tax-sim-body"></div>
+    <button onclick="exportTaxPdf()" style="width:100%;margin:16px 0 30px;background:linear-gradient(135deg,#dc2626,#b91c1c);border:none;color:#fff;border-radius:12px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif">📄 원천징수영수증 형식으로 PDF 내보내기</button>
+  </div>
+</div>
+
 <!-- ══ SETTINGS ════════════════════════════════════════════════════════════════ -->
 <div id="page-settings" class="page">
   <div class="top-bar"><span class="page-title">⚙️ 설정</span></div>
+  <div class="settings-section">
+    <div class="settings-title">📊 분석 도구</div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div onclick="switchGroup('tax')" style="display:flex;align-items:center;gap:13px;padding:16px;cursor:pointer">
+        <span style="font-size:26px">🧾</span>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:700;color:var(--text)">연말정산 시뮬레이션</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">하단 정산 탭에서도 열 수 있어요 · 원천징수영수증 PDF 내보내기</div>
+        </div>
+        <span style="font-size:18px;color:var(--text4)">›</span>
+      </div>
+    </div>
+  </div>
   <div class="settings-section">
     <div class="settings-title">🔒 보안</div>
     <div class="card">
@@ -939,6 +970,7 @@ body.privacy-on input[type="number"]::placeholder{-webkit-text-security:none}
   <button class="nav-btn" onclick="switchGroup('flow',this)"><span class="nav-icon">💸</span><span class="nav-label">수입·지출</span></button>
   <button class="nav-btn" onclick="switchGroup('asset',this)"><span class="nav-icon">💰</span><span class="nav-label">자산</span></button>
   <button class="nav-btn" onclick="switchGroup('debt',this)"><span class="nav-icon">🏛️</span><span class="nav-label">대출</span></button>
+  <button class="nav-btn" onclick="switchGroup('tax',this)"><span class="nav-icon">🧾</span><span class="nav-label">정산</span></button>
   <button class="nav-btn" onclick="switchGroup('settings',this)"><span class="nav-icon">⚙️</span><span class="nav-label">설정</span></button>
 </nav>
 </div>
@@ -1234,9 +1266,10 @@ const TAB_GROUPS={
   flow:{members:['income','expense','fixed'],def:'income'},
   asset:{members:['savings','deposit','invest'],def:'savings'},
   debt:{members:['loan'],def:'loan'},
+  tax:{members:['taxsim'],def:'taxsim'},
   settings:{members:['settings'],def:'settings'}
 };
-let lastSub={flow:'income',asset:'savings',debt:'loan'}; // 그룹별 마지막 선택 기억
+let lastSub={flow:'income',asset:'savings'}; // 그룹별 마지막 선택 기억
 function pageToGroup(id){for(const g in TAB_GROUPS)if(TAB_GROUPS[g].members.includes(id))return g;return 'home';}
 
 function switchGroup(group,btn){
@@ -1277,10 +1310,11 @@ function showPage(id){
   // 하단 네비 active 동기화
   const group=pageToGroup(id);
   const navBtns=document.querySelectorAll('.nav-btn');
-  const groupOrder=['home','flow','asset','debt','settings'];
+  const groupOrder=['home','flow','asset','debt','tax','settings'];
   navBtns.forEach((b,idx)=>b.classList.toggle('active',groupOrder[idx]===group));
   curTab=id; renderAll();
   if(id==='invest'){renderHoldings();ivCalc();}
+  if(id==='taxsim'){renderTaxSim();}
   document.getElementById('screen').scrollTop=0;
 }
 // 하위 호환: 기존 switchTab 호출도 동작하게
@@ -3334,6 +3368,571 @@ function togglePrivacy(){
   renderAll();
   if(privacyMode)showToast('🙈 프라이버시 모드 ON — 금액이 가려져요');
   else showToast('👁️ 프라이버시 모드 OFF');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 연말정산 시뮬레이션 (2026년 귀속 기준 세법)
+// ══════════════════════════════════════════════════════════════════════════════
+function calcEarnedIncomeDeduction(gross){
+  let d;
+  if(gross<=5000000)d=gross*0.7;
+  else if(gross<=15000000)d=3500000+(gross-5000000)*0.4;
+  else if(gross<=45000000)d=7500000+(gross-15000000)*0.15;
+  else if(gross<=100000000)d=12000000+(gross-45000000)*0.05;
+  else d=14750000+(gross-100000000)*0.02;
+  return Math.min(d,20000000);
+}
+function calcEarnedTaxCredit(calcTax,gross){
+  let credit;
+  if(calcTax<=1300000)credit=calcTax*0.55;
+  else credit=715000+(calcTax-1300000)*0.30;
+  let limit;
+  if(gross<=33000000)limit=740000;
+  else if(gross<=70000000)limit=Math.max(660000,740000-(gross-33000000)*0.008);
+  else limit=Math.max(500000,660000-(gross-70000000)*0.5);
+  return Math.min(credit,limit);
+}
+function calcIncomeTax(base){
+  if(base<=0)return 0;
+  const brackets=[[14000000,0.06,0],[50000000,0.15,1260000],[88000000,0.24,5760000],[150000000,0.35,15440000],[300000000,0.38,19940000],[500000000,0.40,25940000],[1000000000,0.42,35940000],[Infinity,0.45,65940000]];
+  for(const[limit,rate,deduct]of brackets){if(base<=limit)return Math.floor(base*rate-deduct);}
+  return 0;
+}
+function getAnnualIncome(year,person){
+  let regularGross=0,bonus=0,deductNP=0,deductHI=0,deductEI=0,deductLTC=0,tax=0,localTax=0;
+  for(let m=1;m<=12;m++){
+    const inc=ls('inc:'+mk(year,m))||{};
+    (inc[person+'Bonus']||[]).forEach(b=>{if(b.regular!==false)regularGross+=num(b.amount);else bonus+=num(b.amount);});
+    (inc[person+'Deds']||[]).forEach(d=>{
+      const nm=(d.name||'').replace(/\s/g,'');const amt=num(d.amount);
+      if(nm.includes('국민연금')||nm.includes('연금'))deductNP+=amt;
+      else if(nm.includes('건강'))deductHI+=amt;
+      else if(nm.includes('장기요양'))deductLTC+=amt;
+      else if(nm.includes('고용'))deductEI+=amt;
+      else if(nm.includes('소득세')&&nm.includes('지방'))localTax+=amt;
+      else if(nm.includes('소득세'))tax+=amt;
+    });
+  }
+  return {gross:regularGross+bonus,regularGross,bonus,deductNP,deductHI,deductEI,deductLTC,prepaidTax:tax,prepaidLocal:localTax};
+}
+function getTaxData(year,person){return ls('taxsim:'+year+':'+person)||{};}
+function setTaxData(year,person,data){lss('taxsim:'+year+':'+person,data);}
+function updTaxData(key,val){
+  const year=document.getElementById('tax-year').value;
+  const person=document.getElementById('tax-person').value;
+  const d=getTaxData(year,person);d[key]=val;setTaxData(year,person,d);renderTaxSim();
+}
+function computeTaxSettlement(year,person){
+  const inc=getAnnualIncome(year,person);
+  const d=getTaxData(year,person);
+  const gross=inc.gross;
+  const earnedDed=calcEarnedIncomeDeduction(gross);
+  const earnedIncome=Math.max(0,gross-earnedDed);
+
+  // ── 1. 인적공제 ──────────────────────────────────────────
+  const basicSelf=1500000;
+  const hasSpouse=d.spouse?1500000:0;                 // ㉕ 배우자공제
+  const depCount=num(d.dependents)||0;
+  const basicDep=depCount*1500000;                    // ㉖ 부양가족
+  const addElderly=(num(d.elderly)||0)*1000000;       // ㉗ 경로우대 70세↑
+  const addDisabled=(num(d.disabled)||0)*2000000;     // ㉘ 장애인
+  const addFemale=d.female?500000:0;                  // ㉙ 부녀자
+  const addSingleParent=d.singleParent?1000000:0;     // ㉚ 한부모
+  const personalDed=basicSelf+hasSpouse+basicDep+addElderly+addDisabled+addFemale+addSingleParent;
+
+  // ── 2. 연금보험료공제 ㉛㉜ ───────────────────────────────
+  const pensionDed=inc.deductNP; // ㉛ 국민연금 (자동집계)
+  const publicPension=num(d.publicPension)||0; // ㉜ 공적연금(공무원/군인/사학/별정우체국)
+  const totalPensionDed=pensionDed+publicPension;
+
+  // ── 3. 특별소득공제 ㉝㉞ ─────────────────────────────────
+  const healthDed=inc.deductHI+inc.deductLTC+inc.deductEI; // ㉝ 건강+장기요양+고용 (자동)
+  const housingLoanDed=num(d.housingLoan)||0;  // ㉞ 장기주택저당차입금 이자
+  const housingRentDed=num(d.housingRent)||0;  // ㉞ 주택임차차입금 원리금상환액
+  const specialIncomeDed=healthDed+housingLoanDed+housingRentDed;
+
+  // ── 4. 그 밖의 소득공제 ㊲~㊺ ────────────────────────────
+  const pensionSavingOld=num(d.pensionSavingOld)||0; // ㊲ 개인연금저축(2000년이전, 40%·72만한도)
+  const smeFund=num(d.smeFund)||0;                // ㊳ 소기업·소상공인 공제부금(노란우산)
+  const housingSaving=num(d.housingSaving)||0;    // ㊴ 주택청약종합저축
+  const housingSubscriptionOld=num(d.housingSubscriptionOld)||0; // ㊴ 청약저축
+  const workerHousingSaving=num(d.workerHousingSaving)||0; // ㊴ 근로자주택마련저축
+  const sme=num(d.smeStock)||0;                   // ㊵ 투자조합출자 등
+  const cardDed=num(d.cardDeduction)||0;          // ㊶ 신용카드 등 사용액
+  const employeeStock=num(d.employeeStock)||0;    // ㊷ 우리사주조합 출연금(400만한도)
+  const smeEmployee=num(d.smeEmployee)||0;        // ㊸ 고용유지 중소기업 근로자
+  const longtermFund=num(d.longtermFund)||0;      // ㊹ 장기집합투자증권저축
+  const youthFund=num(d.youthFund)||0;            // ㊺ 청년형장기집합투자증권저축
+  const otherIncomeDed=pensionSavingOld+smeFund+housingSaving+housingSubscriptionOld+workerHousingSaving+sme+cardDed+employeeStock+smeEmployee+longtermFund+youthFund;
+
+  const totalDeduction=personalDed+totalPensionDed+specialIncomeDed+otherIncomeDed;
+  const taxBase=Math.max(0,earnedIncome-totalDeduction);
+  const calcTax=calcIncomeTax(taxBase);
+
+  // ── 세액공제 ─────────────────────────────────────────────
+  const earnedTaxCredit=calcEarnedTaxCredit(calcTax,gross); // ㊽ 근로소득세액공제
+  const marriageCredit=d.marriage?500000:0; // ㊻ 혼인세액공제 (2024신설, 50만원)
+
+  // 자녀세액공제 (8세 이상)
+  const childCount=num(d.children)||0;
+  let childCredit=0;
+  if(childCount===1)childCredit=250000;
+  else if(childCount===2)childCredit=550000;
+  else if(childCount>=3)childCredit=550000+(childCount-2)*400000;
+  // 출산·입양 세액공제 (첫째30·둘째50·셋째이상70만)
+  const birthOrder=num(d.birthChild)||0;
+  let birthCredit=0;
+  if(birthOrder===1)birthCredit=300000;
+  else if(birthOrder===2)birthCredit=500000;
+  else if(birthOrder>=3)birthCredit=700000;
+
+  // 연금계좌 세액공제 ⑤⑧~⑥⓪ (퇴직연금·연금저축·ISA)
+  const retirePensionScience=num(d.retirePensionScience)||0; // ㊽ 과학기술인공제회
+  const retirePensionWorker=num(d.retirePensionWorker)||0;   // ㊾ 근로자퇴직급여(IRP)
+  const pensionSaving=num(d.pensionSaving)||0;               // ⑥⓪ 연금저축
+  const isaPension=num(d.isaPension)||0;                     // ⑥⓪-1 ISA만기 연금계좌 납입
+  const pensionAccountLegacy=num(d.pensionAccount)||0; // 기존 통합입력 호환
+  const pensionTotal=Math.min(pensionSaving,6000000)+retirePensionWorker+retirePensionScience+pensionAccountLegacy;
+  const pensionBase=Math.min(pensionTotal,9000000);
+  const pensionRate=gross<=55000000?0.15:0.12;
+  const pensionCredit=Math.floor(pensionBase*pensionRate);
+  const isaCredit=Math.floor(Math.min(isaPension,3000000)*pensionRate); // ISA만기 연금전환 추가공제
+
+  // 보험료 세액공제 (보장성 100만·12%, 장애인전용 100만·15%)
+  const insCredit=Math.floor(Math.min(num(d.insurance)||0,1000000)*0.12);
+  const insDisabledCredit=Math.floor(Math.min(num(d.insuranceDisabled)||0,1000000)*0.15);
+
+  // 의료비 세액공제 (총급여 3% 초과분 15%, 난임 30%·미숙아 20%)
+  const medExpense=num(d.medical)||0;
+  const medThreshold=gross*0.03;
+  const medCredit=Math.floor(Math.max(0,medExpense-medThreshold)*0.15);
+  const medInfertility=Math.floor((num(d.medicalInfertility)||0)*0.30); // 난임시술비 30%
+
+  // 교육비 세액공제 (15%)
+  const eduCredit=Math.floor((num(d.education)||0)*0.15);
+
+  // 기부금 세액공제 (정치/고향사랑/특례/우리사주/일반/종교)
+  const donPolitical=num(d.donationPolitical)||0; // 정치자금 10만이하 100/110, 초과분 15%
+  let donPoliticalCredit=0;
+  if(donPolitical<=100000)donPoliticalCredit=Math.floor(donPolitical*100/110);
+  else donPoliticalCredit=Math.floor(90909+(donPolitical-100000)*0.15);
+  const donHometown=num(d.donationHometown)||0; // 고향사랑 10만이하 100/110, 초과분 15%
+  let donHometownCredit=0;
+  if(donHometown<=100000)donHometownCredit=Math.floor(donHometown*100/110);
+  else donHometownCredit=Math.floor(90909+(donHometown-100000)*0.15);
+  const donLegal=num(d.donationLegal)||0;     // 특례기부금(법정) 15%(1천만초과 30%)
+  const donLegalCredit=Math.floor(donLegal<=10000000?donLegal*0.15:1500000+(donLegal-10000000)*0.30);
+  const donGeneral=num(d.donation)||0;        // 일반기부금 15%(1천만초과 30%)
+  const donGeneralCredit=Math.floor(donGeneral<=10000000?donGeneral*0.15:1500000+(donGeneral-10000000)*0.30);
+  const donReligion=num(d.donationReligion)||0; // 종교단체 15%(1천만초과 30%)
+  const donReligionCredit=Math.floor(donReligion<=10000000?donReligion*0.15:1500000+(donReligion-10000000)*0.30);
+  const donationCredit=donPoliticalCredit+donHometownCredit+donLegalCredit+donGeneralCredit+donReligionCredit;
+
+  // 월세액 세액공제 (1000만한도, 총급여 5500이하 17%·이하 15%)
+  const rentPaid=Math.min(num(d.rent)||0,10000000);
+  const rentRate=gross<=55000000?0.17:0.15;
+  const rentCredit=Math.floor(rentPaid*rentRate);
+
+  // 주택자금차입금 이자세액공제 ⑥⑧
+  const housingLoanCredit=Math.floor((num(d.housingLoanCredit)||0));
+
+  // 외국납부세액공제 ⑥⑨
+  const foreignTaxCredit=num(d.foreignTax)||0;
+
+  // 납세조합공제 ⑥⑦
+  const taxAssociation=num(d.taxAssociation)||0;
+
+  // 표준세액공제 ⑥⑥ (특별소득·세액공제 미신청 시 13만원) — 자동판단
+  const itemizedExists=(specialIncomeDed-healthDed)>0||cardDed>0||insCredit>0||insDisabledCredit>0||medCredit>0||medInfertility>0||eduCredit>0||donationCredit>0||rentCredit>0||pensionCredit>0;
+  const standardCredit=(d.useStandard||!itemizedExists)?130000:0;
+
+  // 세액공제 합계
+  let totalTaxCredit;
+  if(d.useStandard){
+    totalTaxCredit=earnedTaxCredit+marriageCredit+childCredit+birthCredit+pensionCredit+isaCredit+standardCredit+donPoliticalCredit+donHometownCredit+foreignTaxCredit;
+  }else{
+    totalTaxCredit=earnedTaxCredit+marriageCredit+childCredit+birthCredit+pensionCredit+isaCredit+insCredit+insDisabledCredit+medCredit+medInfertility+eduCredit+donationCredit+rentCredit+housingLoanCredit+taxAssociation+foreignTaxCredit+standardCredit;
+  }
+
+  const determinedTax=Math.max(0,calcTax-totalTaxCredit);
+  const localIncomeTax=Math.floor(determinedTax*0.1);
+  const totalDetermined=determinedTax+localIncomeTax;
+  const prepaid=inc.prepaidTax+inc.prepaidLocal;
+  const refund=prepaid-totalDetermined;
+
+  return {inc,gross,earnedDed,earnedIncome,
+    personalDed,basicSelf,hasSpouse,basicDep,addElderly,addDisabled,addFemale,addSingleParent,
+    pensionDed,publicPension,totalPensionDed,specialIncomeDed,healthDed,housingLoanDed,housingRentDed,
+    otherIncomeDed,cardDed,housingSaving,housingSubscriptionOld,workerHousingSaving,pensionSavingOld,smeFund,sme,employeeStock,smeEmployee,longtermFund,youthFund,
+    totalDeduction,taxBase,calcTax,
+    earnedTaxCredit,marriageCredit,childCredit,birthCredit,pensionCredit,isaCredit,retirePensionScience,retirePensionWorker,pensionSaving,isaPension,insCredit,insDisabledCredit,
+    medCredit,medInfertility,eduCredit,
+    donPoliticalCredit,donHometownCredit,donLegalCredit,donGeneralCredit,donReligionCredit,donationCredit,
+    rentCredit,housingLoanCredit,foreignTaxCredit,taxAssociation,standardCredit,useStandard:!!d.useStandard,
+    totalTaxCredit,determinedTax,localIncomeTax,totalDetermined,prepaid,refund,
+    prepaidTax:inc.prepaidTax,prepaidLocal:inc.prepaidLocal};
+}
+
+function renderTaxSim(){
+  const yearSel=document.getElementById('tax-year');
+  if(!yearSel)return;
+  // 연도 옵션 초기화 (최초 1회)
+  if(yearSel.options.length===0){
+    const nowY=new Date().getFullYear();
+    for(let y=nowY;y>=nowY-3;y--){const o=document.createElement('option');o.value=y;o.textContent=y+'년 귀속';yearSel.appendChild(o);}
+  }
+  const year=parseInt(yearSel.value);
+  const person=document.getElementById('tax-person').value;
+  const personLabel=person==='me'?'본인':'배우자';
+  const d=getTaxData(year,person);
+  const r=computeTaxSettlement(year,person);
+  const body=document.getElementById('tax-sim-body');
+  if(!body)return;
+
+  const won=v=>fmt(v);
+  // 각 공제항목의 적용 공제액/공제율 계산 (입력금액 기준)
+  const gross=r.gross;
+  const pensionPctLabel=gross<=55000000?'15%':'12%';
+  const calcInfo=(key)=>{
+    const amt=num(d[key])||0;
+    if(amt<=0)return null;
+    switch(key){
+      // 소득공제 (과세표준에서 차감, 절세효과는 한계세율)
+      case 'housingRent':return {ded:Math.floor(amt*0.4),rate:'40%',type:'소득공제',note:'원리금의 40%'};
+      case 'housingSaving':case 'housingSubscriptionOld':case 'workerHousingSaving':
+        return {ded:Math.floor(Math.min(amt,3000000)*0.4),rate:'40%',type:'소득공제',note:'연240만 한도 40%'};
+      case 'pensionSavingOld':return {ded:Math.min(Math.floor(amt*0.4),720000),rate:'40%',type:'소득공제',note:'72만 한도'};
+      case 'smeFund':return {ded:amt,rate:'100%',type:'소득공제',note:'전액(한도내)'};
+      case 'longtermFund':return {ded:Math.floor(Math.min(amt,6000000)*0.4),rate:'40%',type:'소득공제',note:'240만 한도'};
+      // 세액공제 (산출세액에서 직접 차감)
+      case 'pensionAccount':case 'pensionSaving':case 'retirePensionWorker':case 'retirePensionScience':
+        return {ded:Math.floor(Math.min(amt,9000000)*(gross<=55000000?0.15:0.12)),rate:pensionPctLabel,type:'세액공제',note:'연금계좌'};
+      case 'isaPension':return {ded:Math.floor(Math.min(amt,3000000)*(gross<=55000000?0.15:0.12)),rate:pensionPctLabel,type:'세액공제',note:'ISA 300만한도'};
+      case 'insurance':return {ded:Math.floor(Math.min(amt,1000000)*0.12),rate:'12%',type:'세액공제',note:'100만 한도'};
+      case 'insuranceDisabled':return {ded:Math.floor(Math.min(amt,1000000)*0.15),rate:'15%',type:'세액공제',note:'100만 한도'};
+      case 'medical':{const th=gross*0.03;const base=Math.max(0,amt-th);return {ded:Math.floor(base*0.15),rate:'15%',type:'세액공제',note:'3%초과분 '+fmt(Math.floor(base))};}
+      case 'medicalInfertility':return {ded:Math.floor(amt*0.3),rate:'30%',type:'세액공제',note:'난임시술'};
+      case 'education':return {ded:Math.floor(amt*0.15),rate:'15%',type:'세액공제',note:''};
+      case 'donationPolitical':case 'donationHometown':{
+        const c=amt<=100000?Math.floor(amt*100/110):Math.floor(90909+(amt-100000)*0.15);
+        return {ded:c,rate:amt<=100000?'100/110':'15%',type:'세액공제',note:'10만↓ 전액공제'};
+      }
+      case 'donationLegal':case 'donation':case 'donationReligion':{
+        const c=Math.floor(amt<=10000000?amt*0.15:1500000+(amt-10000000)*0.3);
+        return {ded:c,rate:amt<=10000000?'15%':'15~30%',type:'세액공제',note:'1천만초과 30%'};
+      }
+      case 'rent':{const rr=gross<=55000000?0.17:0.15;return {ded:Math.floor(Math.min(amt,10000000)*rr),rate:gross<=55000000?'17%':'15%',type:'세액공제',note:'1000만 한도'};}
+      case 'employeeStock':return {ded:Math.min(amt,4000000),rate:'100%',type:'소득공제',note:'400만 한도'};
+      default:return null;
+    }
+  };
+  // 입력 필드 헬퍼 (입력 시 자동 공제율·공제액 표시)
+  const numField=(key,label,hint)=>{
+    const info=calcInfo(key);
+    const badge=info?`<div style="font-size:9.5px;margin-top:3px;display:flex;align-items:center;gap:5px;flex-wrap:wrap">
+      <span style="background:${info.type==='세액공제'?'rgba(74,222,128,.15)':'rgba(96,165,250,.15)'};color:${info.type==='세액공제'?'#4ade80':'#60a5fa'};border:1px solid ${info.type==='세액공제'?'var(--green-border)':'var(--blue-border)'};padding:1px 6px;border-radius:99px;font-weight:700">${info.type} ${info.rate}</span>
+      <span style="color:${info.type==='세액공제'?'#4ade80':'#60a5fa'};font-weight:700">→ ${fmt(info.ded)}</span>
+      ${info.note?`<span style="color:var(--text4)">${info.note}</span>`:''}</div>`:'';
+    return `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="flex:1"><div style="font-size:12px;color:var(--text2)">${label}</div>${hint?`<div style="font-size:9px;color:var(--text4)">${hint}</div>`:''}</div>
+        <input type="number" value="${d[key]||''}" placeholder="0" onchange="updTaxData('${key}',this.value)" style="width:120px;background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;padding:7px;text-align:right;font-family:inherit"/></div>
+      ${badge}</div>`;
+  };
+  const checkField=(key,label)=>`<div onclick="updTaxData('${key}',${d[key]?'false':'true'})" style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer">
+    <span style="width:18px;height:18px;border-radius:5px;border:1px solid ${d[key]?'var(--accent-border)':'var(--border2)'};background:${d[key]?'var(--accent)':'transparent'};color:#0f172a;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:800">${d[key]?'✓':''}</span>
+    <span style="font-size:12px;color:var(--text2)">${label}</span></div>`;
+  // 결과 행
+  const row=(label,val,opt={})=>`<div style="display:flex;justify-content:space-between;padding:${opt.big?'10px':'6px'} 0;${opt.border?'border-top:1px solid var(--border2);':''}${opt.sub?'padding-left:12px;':''}">
+    <span style="font-size:${opt.big?'13px':'12px'};color:${opt.big?'var(--text)':'var(--text3)'};font-weight:${opt.big?'700':'400'}">${label}</span>
+    <span style="font-size:${opt.big?'14px':'12px'};color:${opt.color||(opt.big?'var(--text)':'var(--text2)')};font-weight:${opt.big?'800':'600'}">${won(val)}</span></div>`;
+
+  const sectionTitle=t=>`<div style="font-size:12px;font-weight:700;color:var(--accent);margin:18px 0 6px;padding-bottom:4px;border-bottom:2px solid var(--accent-border)">${t}</div>`;
+
+  body.innerHTML=
+    // 자동 집계된 수입
+    `<div style="background:var(--card);border:1px solid var(--border2);border-radius:14px;padding:16px;margin-bottom:8px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px">📥 ${year}년 ${personLabel} 연간 수입 (수입 탭에서 자동 집계)</div>
+      ${row('총급여 (정기+상여)',r.gross,{big:true,color:'#4ade80'})}
+      ${row('└ 정기급여',r.inc.regularGross,{sub:true})}
+      ${row('└ 상여·성과급',r.inc.bonus,{sub:true})}
+      ${row('기납부 소득세',r.prepaidTax,{sub:true})}
+      ${row('기납부 지방소득세',r.prepaidLocal,{sub:true})}
+      <div style="font-size:9px;color:var(--text4);margin-top:6px">※ 국민연금·건강보험·고용보험 공제액도 자동 반영됩니다</div>
+    </div>`+
+
+    // 입력 섹션: 인적공제
+    `<div style="background:var(--card);border:1px solid var(--border2);border-radius:14px;padding:16px;margin-bottom:8px">
+      ${sectionTitle('👨‍👩‍👧 기본·추가 인적공제 ㉔~㉚')}
+      ${checkField('spouse','㉕ 배우자공제 (150만원)')}
+      ${numField('dependents','㉖ 부양가족 수','1명당 150만원, 본인·배우자 제외')}
+      ${numField('children','8세이상 자녀 수','자녀세액공제용')}
+      ${numField('birthChild','출산·입양 (몇째)','첫30·둘50·셋이상70만')}
+      ${numField('elderly','㉗ 경로우대 (70세↑)','1명당 100만원')}
+      ${numField('disabled','㉘ 장애인 수','1명당 200만원')}
+      ${checkField('female','㉙ 부녀자 공제 (50만원)')}
+      ${checkField('singleParent','㉚ 한부모 공제 (100만원)')}
+
+      ${sectionTitle('🏦 연금보험료공제 ㉜')}
+      ${numField('publicPension','공적연금(공무원/군인/사학/별정)','국민연금은 자동 반영됨')}
+
+      ${sectionTitle('🏠 특별소득공제 (주택자금) ㉞')}
+      ${numField('housingRent','㉞ 주택임차차입금 원리금','전세자금대출 상환액 40%')}
+      ${numField('housingLoan','㉞ 장기주택저당차입금 이자','주택담보대출 이자상환액')}
+
+      ${sectionTitle('💳 그 밖의 소득공제 ㊲~㊺')}
+      ${numField('pensionSavingOld','㊲ 개인연금저축(2000년이전)','40%, 72만 한도')}
+      ${numField('smeFund','㊳ 소기업·소상공인 공제부금','노란우산공제, 200~500만')}
+      ${numField('housingSubscriptionOld','㊴ 청약저축','연 240만 한도 40%')}
+      ${numField('housingSaving','㊴ 주택청약종합저축','연 240만 한도 40%')}
+      ${numField('workerHousingSaving','㊴ 근로자주택마련저축','40%')}
+      ${numField('smeStock','㊵ 투자조합출자 등','10~30%')}
+      ${numField('cardDeduction','㊶ 신용카드 등 사용액','국세청 간소화 계산값')}
+      ${numField('employeeStock','㊷ 우리사주조합 출연금','400만 한도')}
+      ${numField('smeEmployee','㊸ 고용유지 중소기업 근로자','임금삭감액 50%')}
+      ${numField('longtermFund','㊹ 장기집합투자증권저축','40%, 240만 한도')}
+      ${numField('youthFund','㊺ 청년형장기집합투자증권저축','40%')}
+    </div>`+
+
+    // 세액공제 입력
+    `<div style="background:var(--card);border:1px solid var(--border2);border-radius:14px;padding:16px;margin-bottom:8px">
+      ${sectionTitle('💍 혼인 세액공제 ㊻')}
+      ${checkField('marriage','혼인세액공제 (50만원, 2024~2026)')}
+
+      ${sectionTitle('💰 연금계좌 세액공제 ㊽~⑥⓪')}
+      ${numField('retirePensionScience','㊽ 과학기술인공제회 퇴직연금','12~15%')}
+      ${numField('retirePensionWorker','㊾ 근로자퇴직급여(IRP)','12~15%')}
+      ${numField('pensionSaving','⑥⓪ 연금저축','한도 600만, 12~15%')}
+      ${numField('isaPension','⑥⓪-1 ISA만기 연금계좌 납입','한도 300만 추가')}
+      ${numField('pensionAccount','(통합입력) 연금저축+IRP','위 항목 대신 한번에, 한도900만')}
+
+      ${sectionTitle('🛡️ 보험료 세액공제 ⑥①')}
+      ${numField('insurance','보장성보험료','한도 100만, 12%')}
+      ${numField('insuranceDisabled','장애인전용보장성보험','한도 100만, 15%')}
+
+      ${sectionTitle('🏥 의료비·교육비 ⑥②⑥③')}
+      ${numField('medical','⑥② 의료비 지출액','총급여 3% 초과분 15%')}
+      ${numField('medicalInfertility','난임시술비','30% (한도 없음)')}
+      ${numField('education','⑥③ 교육비 지출액','15%')}
+
+      ${sectionTitle('🎁 기부금 세액공제 ⑥④')}
+      ${numField('donationPolitical','㉮ 정치자금 기부금','10만↓ 100/110, 초과 15%')}
+      ${numField('donationHometown','㉯ 고향사랑 기부금','10만↓ 100/110, 초과 15%')}
+      ${numField('donationLegal','㉱ 특례기부금(법정)','15% / 1천만초과 30%')}
+      ${numField('donation','㉲ 일반기부금(종교 외)','15% / 1천만초과 30%')}
+      ${numField('donationReligion','㉳ 일반기부금(종교단체)','15% / 1천만초과 30%')}
+
+      ${sectionTitle('🏘️ 주택·기타 세액공제 ⑥⑥~⑦⓪')}
+      ${numField('taxAssociation','⑥⑦ 납세조합공제','원천징수세액의 5%')}
+      ${numField('housingLoanCredit','⑥⑧ 주택차입금 이자세액공제','일반 차입금 이자')}
+      ${numField('foreignTax','⑥⑨ 외국납부세액공제','국외근로소득 납부세액')}
+      ${numField('rent','⑦⓪ 월세액 (연간)','한도 1000만, 15~17%')}
+
+      ${sectionTitle('📋 공제방식 선택 ⑥⑥')}
+      ${checkField('useStandard','표준세액공제(13만원) 적용 — 특별세액공제 대신 선택')}
+      <div style="font-size:9.5px;color:var(--text4);margin-top:6px;line-height:1.5">💡 의료비·교육비·보험료·기부금 등 특별세액공제 합계가 13만원보다 적으면 표준세액공제가 유리해요. 체크 시 특별세액공제 대신 13만원이 적용됩니다.</div>
+    </div>`+
+
+    // 계산 결과 (원천징수영수증 흐름)
+    `<div style="background:linear-gradient(135deg,#1a1228,#241830);border:1px solid var(--purple-border);border-radius:14px;padding:16px;margin-bottom:8px">
+      <div style="font-size:13px;font-weight:700;color:#c4b5fd;margin-bottom:10px">🧮 계산 내역 (원천징수영수증 순서)</div>
+      ${row('① 총급여액',r.gross)}
+      ${row('② 근로소득공제',-r.earnedDed,{color:'#f87171'})}
+      ${row('③ 근로소득금액 (①-②)',r.earnedIncome,{border:true})}
+      ${row('④ 인적공제',-r.personalDed,{color:'#f87171'})}
+      ${row('⑤ 연금보험료공제',-r.totalPensionDed,{color:'#f87171'})}
+      ${row('└ 국민연금',-r.pensionDed,{sub:true,color:'#fca5a5'})}
+      ${r.publicPension>0?row('└ 공적연금',-r.publicPension,{sub:true,color:'#fca5a5'}):''}
+      ${row('⑥ 특별소득공제',-r.specialIncomeDed,{color:'#f87171'})}
+      ${row('└ 건강·고용·장기요양보험',-r.healthDed,{sub:true,color:'#fca5a5'})}
+      ${r.housingLoanDed>0?row('└ 장기주택저당차입금',-r.housingLoanDed,{sub:true,color:'#fca5a5'}):''}
+      ${r.housingRentDed>0?row('└ 주택임차차입금',-r.housingRentDed,{sub:true,color:'#fca5a5'}):''}
+      ${row('⑦ 그 밖의 소득공제',-r.otherIncomeDed,{color:'#f87171'})}
+      ${r.cardDed>0?row('└ 신용카드 등',-r.cardDed,{sub:true,color:'#fca5a5'}):''}
+      ${r.housingSaving>0?row('└ 주택청약저축',-r.housingSaving,{sub:true,color:'#fca5a5'}):''}
+      ${row('⑧ 과세표준',r.taxBase,{big:true,border:true,color:'#fbbf24'})}
+      ${row('⑨ 산출세액',r.calcTax,{border:true})}
+      <div style="font-size:11px;color:#a78bfa;margin:10px 0 4px;font-weight:600">▼ 세액공제</div>
+      ${row('근로소득세액공제',-r.earnedTaxCredit,{sub:true,color:'#4ade80'})}
+      ${r.marriageCredit>0?row('혼인세액공제',-r.marriageCredit,{sub:true,color:'#4ade80'}):''}
+      ${r.childCredit>0?row('자녀세액공제',-r.childCredit,{sub:true,color:'#4ade80'}):''}
+      ${r.birthCredit>0?row('출산·입양세액공제',-r.birthCredit,{sub:true,color:'#4ade80'}):''}
+      ${r.pensionCredit>0?row('연금계좌세액공제',-r.pensionCredit,{sub:true,color:'#4ade80'}):''}
+      ${r.isaCredit>0?row('ISA연금계좌세액공제',-r.isaCredit,{sub:true,color:'#4ade80'}):''}
+      ${!r.useStandard&&r.insCredit>0?row('보험료세액공제',-r.insCredit,{sub:true,color:'#4ade80'}):''}
+      ${!r.useStandard&&r.insDisabledCredit>0?row('장애인보험세액공제',-r.insDisabledCredit,{sub:true,color:'#4ade80'}):''}
+      ${!r.useStandard&&r.medCredit>0?row('의료비세액공제',-r.medCredit,{sub:true,color:'#4ade80'}):''}
+      ${!r.useStandard&&r.medInfertility>0?row('난임시술비세액공제',-r.medInfertility,{sub:true,color:'#4ade80'}):''}
+      ${!r.useStandard&&r.eduCredit>0?row('교육비세액공제',-r.eduCredit,{sub:true,color:'#4ade80'}):''}
+      ${r.donPoliticalCredit>0?row('정치자금기부금',-r.donPoliticalCredit,{sub:true,color:'#4ade80'}):''}
+      ${r.donHometownCredit>0?row('고향사랑기부금',-r.donHometownCredit,{sub:true,color:'#4ade80'}):''}
+      ${!r.useStandard&&r.donLegalCredit>0?row('특례기부금',-r.donLegalCredit,{sub:true,color:'#4ade80'}):''}
+      ${!r.useStandard&&r.donGeneralCredit>0?row('일반기부금',-r.donGeneralCredit,{sub:true,color:'#4ade80'}):''}
+      ${!r.useStandard&&r.donReligionCredit>0?row('종교단체기부금',-r.donReligionCredit,{sub:true,color:'#4ade80'}):''}
+      ${!r.useStandard&&r.rentCredit>0?row('월세액세액공제',-r.rentCredit,{sub:true,color:'#4ade80'}):''}
+      ${!r.useStandard&&r.housingLoanCredit>0?row('주택차입금이자',-r.housingLoanCredit,{sub:true,color:'#4ade80'}):''}
+      ${r.taxAssociation>0?row('납세조합공제',-r.taxAssociation,{sub:true,color:'#4ade80'}):''}
+      ${r.foreignTaxCredit>0?row('외국납부세액공제',-r.foreignTaxCredit,{sub:true,color:'#4ade80'}):''}
+      ${r.standardCredit>0?row('표준세액공제',-r.standardCredit,{sub:true,color:'#4ade80'}):''}
+      ${row('⑩ 세액공제 합계',-r.totalTaxCredit,{border:true,color:'#4ade80'})}
+      ${row('⑪ 결정세액 (소득세)',r.determinedTax,{big:true,border:true})}
+      ${row('⑫ 지방소득세 (10%)',r.localIncomeTax)}
+      ${row('⑬ 결정세액 합계',r.totalDetermined,{big:true})}
+      ${row('⑭ 기납부세액',r.prepaid,{border:true})}
+    </div>`+
+
+    // 최종 결과
+    `<div style="background:${r.refund>=0?'linear-gradient(135deg,#0a2e1a,#0f3d22)':'linear-gradient(135deg,#3d1515,#4a1a1a)'};border:1px solid ${r.refund>=0?'var(--green-border)':'var(--red-border)'};border-radius:16px;padding:20px;text-align:center">
+      <div style="font-size:13px;color:${r.refund>=0?'#4ade80':'#f87171'};font-weight:600;margin-bottom:6px">${r.refund>=0?'💚 예상 환급액':'💸 예상 추가납부액'}</div>
+      <div style="font-size:30px;font-weight:800;color:${r.refund>=0?'#4ade80':'#f87171'}">${r.refund>=0?'+':'-'}${won(Math.abs(r.refund))}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px">기납부 ${won(r.prepaid)} ${r.refund>=0?'−':'−'} 결정세액 ${won(r.totalDetermined)}</div>
+    </div>`;
+}
+function exportTaxPdf(){
+  const year=document.getElementById('tax-year').value;
+  const person=document.getElementById('tax-person').value;
+  generateTaxPdf(parseInt(year),person);
+}
+function generateTaxPdf(year,person){
+  const r=computeTaxSettlement(year,person);
+  const personLabel=person==='me'?'본인':'배우자';
+  const f=v=>Number(v||0).toLocaleString('ko-KR');
+  // 정부양식 행: 번호 / 구분 / 금액
+  const R=(no,label,val,opt={})=>`<tr${opt.head?' class="rowhead"':''}>
+    <td class="cno">${no||''}</td>
+    <td class="clabel"${opt.indent?' style="padding-left:22px;color:#444"':''}>${label}</td>
+    <td class="camt"${opt.minus?' style="color:#c00"':''}>${val===''?'':(opt.minus?'△':'')+f(val)}</td></tr>`;
+  const sub=(label,val)=>`<tr><td class="cno"></td><td class="clabel" style="padding-left:22px;color:#555;font-size:10px">${label}</td><td class="camt" style="color:#555;font-size:10px">${f(val)}</td></tr>`;
+
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>근로소득 원천징수영수증_${year}_${personLabel}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Malgun Gothic','맑은 고딕',sans-serif;padding:18px 16px;color:#000;background:#fff;font-size:11px}
+    .form-no{font-size:9px;color:#444;text-align:right;margin-bottom:2px}
+    .doc-title{text-align:center;font-size:17px;font-weight:800;letter-spacing:2px;border:2px solid #000;padding:7px;margin-bottom:2px}
+    .doc-sub{text-align:center;font-size:10px;color:#333;margin-bottom:10px}
+    table{width:100%;border-collapse:collapse;table-layout:fixed}
+    .info-tbl td{border:1px solid #000;padding:4px 6px;font-size:10px}
+    .info-tbl .lbl{background:#eee;font-weight:600;width:22%;text-align:center}
+    .main-tbl{margin-top:8px}
+    .main-tbl td{border:1px solid #000;padding:3px 6px;height:22px;vertical-align:middle}
+    .main-tbl .cno{width:34px;text-align:center;background:#f3f3f3;font-weight:700;font-size:10px}
+    .main-tbl .clabel{font-size:10.5px}
+    .main-tbl .camt{width:120px;text-align:right;font-size:10.5px;font-variant-numeric:tabular-nums}
+    .main-tbl .rowhead .clabel{font-weight:700;background:#f9f9f9}
+    .main-tbl .rowhead .camt{font-weight:700;background:#f9f9f9}
+    .sec-band td{background:#2c3e50;color:#fff;font-weight:700;font-size:11px;text-align:center;padding:5px;border:1px solid #000}
+    .final-band td{background:#fff7e6;font-weight:800;font-size:13px;border:2px solid #000;padding:8px}
+    .final-amt{color:${r.refund>=0?'#0a7d28':'#c0181f'}}
+    .footer{font-size:8.5px;color:#666;margin-top:12px;line-height:1.7;border-top:1px solid #999;padding-top:8px}
+    .sign{text-align:right;font-size:10px;margin-top:14px;line-height:2}
+    @media print{body{padding:8px}.no-print{display:none}}
+  </style></head><body>
+  <div class="form-no">［별지 제24호서식(1)］ 근로소득 원천징수영수증</div>
+  <div class="doc-title">근로소득 원천징수영수증 / 지급명세서</div>
+  <div class="doc-sub">( ${year}년 귀속 · 연말정산 시뮬레이션 ) &nbsp;［ ✓ 소득자 보관용 ］</div>
+
+  <table class="info-tbl">
+    <tr><td class="lbl">징수의무자<br>(소속회사)</td><td>　</td><td class="lbl">사업자등록번호</td><td>　</td></tr>
+    <tr><td class="lbl">소득자 성명</td><td>${personLabel}</td><td class="lbl">주민등록번호</td><td>　</td></tr>
+    <tr><td class="lbl">귀속 연도</td><td>${year}년 (1.1~12.31)</td><td class="lbl">작성일</td><td>${new Date().toLocaleDateString('ko-KR')}</td></tr>
+  </table>
+
+  <table class="main-tbl">
+    <tr class="sec-band"><td colspan="3">Ⅰ. 근로소득 및 근로소득금액</td></tr>
+    ${R('㉑','총급여 (정기급여+상여)',r.gross,{head:true})}
+    ${sub('정기급여',r.inc.regularGross)}
+    ${sub('상여·성과급',r.inc.bonus)}
+    ${R('㉒','근로소득공제',r.earnedDed,{minus:true})}
+    ${R('㉓','근로소득금액 (㉑−㉒)',r.earnedIncome,{head:true})}
+
+    <tr class="sec-band"><td colspan="3">Ⅱ. 종합소득공제 (인적·연금·특별·그밖)</td></tr>
+    ${R('㉔','인적공제 — 기본공제',r.basicSelf+r.hasSpouse+r.basicDep,{head:true})}
+    ${sub('본인',r.basicSelf)}
+    ${r.hasSpouse>0?sub('㉕ 배우자',r.hasSpouse):''}
+    ${r.basicDep>0?sub('㉖ 부양가족',r.basicDep):''}
+    ${(r.addElderly+r.addDisabled+r.addFemale+r.addSingleParent)>0?R('','인적공제 — 추가공제',r.addElderly+r.addDisabled+r.addFemale+r.addSingleParent,{head:true}):''}
+    ${r.addElderly>0?sub('㉗ 경로우대',r.addElderly):''}
+    ${r.addDisabled>0?sub('㉘ 장애인',r.addDisabled):''}
+    ${r.addFemale>0?sub('㉙ 부녀자',r.addFemale):''}
+    ${r.addSingleParent>0?sub('㉚ 한부모',r.addSingleParent):''}
+    ${R('㉛㉜','연금보험료공제',r.totalPensionDed,{head:true})}
+    ${sub('국민연금보험료',r.pensionDed)}
+    ${r.publicPension>0?sub('공적연금(공무원·군인·사학)',r.publicPension):''}
+    ${R('㉝㉞','특별소득공제',r.specialIncomeDed,{head:true})}
+    ${sub('㉝ 건강·고용·장기요양보험료',r.healthDed)}
+    ${r.housingLoanDed>0?sub('㉞ 장기주택저당차입금 이자',r.housingLoanDed):''}
+    ${r.housingRentDed>0?sub('㉞ 주택임차차입금 원리금',r.housingRentDed):''}
+    ${R('㊲~㊺','그 밖의 소득공제',r.otherIncomeDed,{head:true})}
+    ${r.pensionSavingOld>0?sub('㊲ 개인연금저축',r.pensionSavingOld):''}
+    ${r.smeFund>0?sub('㊳ 소기업·소상공인공제부금',r.smeFund):''}
+    ${r.housingSubscriptionOld>0?sub('㊴ 청약저축',r.housingSubscriptionOld):''}
+    ${r.housingSaving>0?sub('㊴ 주택청약종합저축',r.housingSaving):''}
+    ${r.workerHousingSaving>0?sub('㊴ 근로자주택마련저축',r.workerHousingSaving):''}
+    ${r.sme>0?sub('㊵ 투자조합출자 등',r.sme):''}
+    ${r.cardDed>0?sub('㊶ 신용카드 등 사용액',r.cardDed):''}
+    ${r.employeeStock>0?sub('㊷ 우리사주조합 출연금',r.employeeStock):''}
+    ${r.smeEmployee>0?sub('㊸ 고용유지중소기업 근로자',r.smeEmployee):''}
+    ${r.longtermFund>0?sub('㊹ 장기집합투자증권저축',r.longtermFund):''}
+    ${r.youthFund>0?sub('㊺ 청년형장기집합투자',r.youthFund):''}
+    ${R('㊱','종합소득공제 합계',r.totalDeduction,{head:true})}
+
+    <tr class="sec-band"><td colspan="3">Ⅲ. 과세표준 및 산출세액</td></tr>
+    ${R('㊻','과세표준 (㉓−㊱)',r.taxBase,{head:true})}
+    ${R('㊼','산출세액',r.calcTax,{head:true})}
+
+    <tr class="sec-band"><td colspan="3">Ⅳ. 세액공제</td></tr>
+    ${R('㊽','근로소득세액공제',r.earnedTaxCredit,{minus:true})}
+    ${r.marriageCredit>0?R('','혼인세액공제',r.marriageCredit,{minus:true}):''}
+    ${r.childCredit>0?R('','자녀세액공제',r.childCredit,{minus:true}):''}
+    ${r.birthCredit>0?R('','출산·입양세액공제',r.birthCredit,{minus:true}):''}
+    ${r.pensionCredit>0?R('','연금계좌세액공제',r.pensionCredit,{minus:true}):''}
+    ${r.isaCredit>0?R('','ISA연금계좌 전환',r.isaCredit,{minus:true}):''}
+    ${!r.useStandard&&r.insCredit>0?R('','보장성보험료',r.insCredit,{minus:true}):''}
+    ${!r.useStandard&&r.insDisabledCredit>0?R('','장애인전용보험료',r.insDisabledCredit,{minus:true}):''}
+    ${!r.useStandard&&r.medCredit>0?R('','의료비',r.medCredit,{minus:true}):''}
+    ${!r.useStandard&&r.medInfertility>0?R('','난임시술비',r.medInfertility,{minus:true}):''}
+    ${!r.useStandard&&r.eduCredit>0?R('','교육비',r.eduCredit,{minus:true}):''}
+    ${r.donPoliticalCredit>0?R('','정치자금기부금',r.donPoliticalCredit,{minus:true}):''}
+    ${r.donHometownCredit>0?R('','고향사랑기부금',r.donHometownCredit,{minus:true}):''}
+    ${!r.useStandard&&r.donLegalCredit>0?R('','특례기부금',r.donLegalCredit,{minus:true}):''}
+    ${!r.useStandard&&r.donGeneralCredit>0?R('','일반기부금',r.donGeneralCredit,{minus:true}):''}
+    ${!r.useStandard&&r.donReligionCredit>0?R('','종교단체기부금',r.donReligionCredit,{minus:true}):''}
+    ${!r.useStandard&&r.rentCredit>0?R('','월세액',r.rentCredit,{minus:true}):''}
+    ${!r.useStandard&&r.housingLoanCredit>0?R('','주택차입금이자',r.housingLoanCredit,{minus:true}):''}
+    ${r.taxAssociation>0?R('','납세조합공제',r.taxAssociation,{minus:true}):''}
+    ${r.foreignTaxCredit>0?R('','외국납부세액',r.foreignTaxCredit,{minus:true}):''}
+    ${r.standardCredit>0?R('','표준세액공제',r.standardCredit,{minus:true}):''}
+    ${R('','세액공제 합계',r.totalTaxCredit,{head:true,minus:true})}
+
+    <tr class="sec-band"><td colspan="3">Ⅴ. 결정세액 및 차감징수세액</td></tr>
+    ${R('','결정세액 (소득세, ㊼−세액공제)',r.determinedTax,{head:true})}
+    ${R('','지방소득세 (결정세액의 10%)',r.localIncomeTax)}
+    ${R('','결정세액 합계 (소득세+지방세)',r.totalDetermined,{head:true})}
+    ${R('','기납부세액 (원천징수)',r.prepaid)}
+    ${sub('기납부 소득세',r.prepaidTax)}
+    ${sub('기납부 지방소득세',r.prepaidLocal)}
+
+    <tr class="final-band"><td class="cno"></td><td>${r.refund>=0?'차감징수세액 (환급)':'차감징수세액 (추가납부)'}</td><td class="camt final-amt">${r.refund>=0?'△ ':'+ '}${f(Math.abs(r.refund))}</td></tr>
+  </table>
+
+  <div class="sign">
+    위의 원천징수액(연말정산 시뮬레이션)을 확인합니다.<br>
+    ${new Date().getFullYear()}년 &nbsp; ${new Date().getMonth()+1}월 &nbsp; ${new Date().getDate()}일
+  </div>
+
+  <div class="footer">
+    ※ 본 문서는 가계부 앱의 <b>연말정산 시뮬레이션</b> 결과이며, 실제 연말정산 결과와 차이가 있을 수 있습니다.<br>
+    ※ 정확한 세액은 국세청 홈택스 연말정산간소화 자료 및 회사 제출 서류를 기준으로 확정됩니다.<br>
+    ※ 차감징수세액의 △는 환급(돌려받음), +는 추가납부를 의미합니다. &nbsp;|&nbsp; 생성일: ${new Date().toLocaleString('ko-KR')}
+  </div>
+  <div class="no-print" style="text-align:center;margin-top:18px">
+    <button onclick="window.print()" style="padding:12px 30px;background:#2c3e50;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">🖨️ 인쇄 / PDF 저장</button>
+  </div>
+  </body></html>`;
+  const w=window.open('','_blank');
+  if(w){w.document.write(html);w.document.close();setTimeout(()=>{try{w.focus();}catch(e){}},300);}
+  else showToast('팝업이 차단됐어요. 팝업 허용 후 다시 시도해주세요.');
 }
 
 function exportData(){
