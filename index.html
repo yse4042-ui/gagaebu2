@@ -277,6 +277,18 @@ body.privacy-on input[type="number"]::placeholder{-webkit-text-security:none}
 .flip-inner>.flip-back{backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .flip-inner>.flip-front{backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .flip-hint{position:absolute;top:14px;right:14px;font-size:9px;color:var(--text4);opacity:.7;pointer-events:none}
+/* 연말정산 영수증 인쇄: 오버레이만 출력 */
+#taxpdf-overlay{position:fixed;inset:0;z-index:99999;background:#fff;overflow:auto;-webkit-overflow-scrolling:touch}
+#taxpdf-overlay .tp-toolbar{position:sticky;top:0;display:flex;gap:8px;padding:10px;background:#2c3e50;z-index:2}
+#taxpdf-overlay .tp-doc{padding:8px}
+@media print{
+  body.tp-printing>*{display:none!important;visibility:hidden!important}
+  body.tp-printing>#taxpdf-overlay{display:block!important;visibility:visible!important;position:static!important;overflow:visible!important}
+  body.tp-printing>#taxpdf-overlay *{visibility:visible!important}
+  body.tp-printing #taxpdf-overlay .tp-toolbar{display:none!important}
+  body.tp-printing #taxpdf-overlay .tp-doc{padding:0!important}
+  @page{size:A4;margin:8mm}
+}
 </style>
 </head>
 <body>
@@ -3938,52 +3950,63 @@ function generateTaxPdf(year,person){
     <button onclick="window.print()" style="padding:11px 28px;background:#2c3e50;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">🖨️ 인쇄 / PDF 저장</button>
   </div>
   </body></html>`;
-  // 1차: 새 창 시도 (데스크탑)
-  let w=null;
-  try{w=window.open('','_blank');}catch(e){w=null;}
-  if(w){
-    w.document.write(html);w.document.close();
-    setTimeout(()=>{try{w.focus();}catch(e){}},300);
-    return;
-  }
-  // 2차: 팝업 차단 시 현재 화면에 전체화면 오버레이로 표시 (모바일/PWA)
+  // 앱(PWA)·모바일에서 window.open이 막히는 경우가 많아 항상 오버레이 우선 사용
   showTaxPdfOverlay(html);
 }
-// 팝업 차단 환경용 전체화면 오버레이
+// 영수증 전체화면 오버레이 (앱/모바일/데스크탑 공통)
 function showTaxPdfOverlay(html){
-  // 기존 오버레이 제거
   const old=document.getElementById('taxpdf-overlay');
   if(old)old.remove();
-  // body만 추출
   const bodyMatch=html.match(/<body>([\s\S]*?)<\/body>/);
   const styleMatch=html.match(/<style>([\s\S]*?)<\/style>/);
-  const bodyContent=bodyMatch?bodyMatch[1]:html;
-  const styleContent=styleMatch?styleMatch[1]:'';
+  let bodyContent=bodyMatch?bodyMatch[1]:html;
+  let styleContent=styleMatch?styleMatch[1]:'';
+  // no-print 버튼(원본 인쇄버튼) 제거
+  bodyContent=bodyContent.replace(/<div class="no-print"[\s\S]*?<\/div>\s*$/,'');
+  // 영수증 스타일을 .tp-doc 하위로 스코프 (앱 전역 스타일 충돌 방지)
+  const scoped=styleContent.replace(/(^|\})\s*([^{}@]+)\{/g,(m,brace,sel)=>{
+    if(/@/.test(sel)||/keyframes/.test(sel))return m;
+    const s=sel.split(',').map(x=>x.trim()).filter(Boolean).map(x=>{
+      if(x==='body'||x==='*'||x==='html')return '#taxpdf-overlay .tp-doc';
+      return '#taxpdf-overlay .tp-doc '+x;
+    }).join(',');
+    return brace+' '+s+'{';
+  });
   const ov=document.createElement('div');
   ov.id='taxpdf-overlay';
-  ov.style.cssText='position:fixed;inset:0;z-index:9999;background:#fff;overflow:auto;-webkit-overflow-scrolling:touch';
-  // iframe으로 격리 렌더 (스타일 충돌 방지 + 인쇄 정확도)
   ov.innerHTML=
-    '<div style="position:sticky;top:0;display:flex;gap:8px;padding:10px;background:#2c3e50;z-index:2">'+
-    '<button onclick="printTaxPdfFrame()" style="flex:1;padding:11px;background:#dc2626;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🖨️ 인쇄 / PDF 저장</button>'+
-    '<button onclick="document.getElementById(\'taxpdf-overlay\').remove()" style="padding:11px 18px;background:#475569;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">✕ 닫기</button>'+
+    '<style>'+scoped+'</style>'+
+    '<div class="tp-toolbar">'+
+    '<button onclick="printTaxPdf()" style="flex:1;padding:12px;background:#dc2626;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">🖨️ 인쇄 / PDF 저장</button>'+
+    '<button onclick="closeTaxPdf()" style="padding:12px 18px;background:#475569;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">✕ 닫기</button>'+
     '</div>'+
-    '<iframe id="taxpdf-frame" style="width:100%;height:calc(100% - 58px);border:none;background:#fff"></iframe>';
+    '<div class="tp-doc">'+bodyContent+'</div>';
   document.body.appendChild(ov);
-  const frame=document.getElementById('taxpdf-frame');
-  const fdoc=frame.contentDocument||frame.contentWindow.document;
-  fdoc.open();
-  // no-print 버튼 제거한 본문 + 스타일
-  const cleanBody=bodyContent.replace(/<div class="no-print"[\s\S]*?<\/div>\s*$/,'');
-  fdoc.write('<!DOCTYPE html><html><head><meta charset="utf-8"><style>'+styleContent+'</style></head><body>'+cleanBody+'</body></html>');
-  fdoc.close();
+  window.scrollTo(0,0);
 }
-function printTaxPdfFrame(){
-  const frame=document.getElementById('taxpdf-frame');
-  if(frame&&frame.contentWindow){
-    frame.contentWindow.focus();
-    frame.contentWindow.print();
-  }
+function printTaxPdf(){
+  const ov=document.getElementById('taxpdf-overlay');
+  if(!ov)return;
+  document.body.classList.add('tp-printing');
+  const cleanup=()=>{document.body.classList.remove('tp-printing');window.removeEventListener('afterprint',cleanup);};
+  window.addEventListener('afterprint',cleanup);
+  setTimeout(()=>{
+    let printed=false;
+    try{
+      // 표준 인쇄 (데스크탑·iOS Safari·대부분 웹뷰)
+      window.print();
+      printed=true;
+    }catch(e){printed=false;}
+    if(!printed){
+      showToast('이 앱에서는 인쇄가 제한돼요. 우측 상단 메뉴의 "인쇄" 또는 "공유"를 이용해주세요.');
+    }
+    setTimeout(cleanup,2000);
+  },150);
+}
+function closeTaxPdf(){
+  const ov=document.getElementById('taxpdf-overlay');
+  if(ov)ov.remove();
+  document.body.classList.remove('tp-printing');
 }
 
 function exportData(){
