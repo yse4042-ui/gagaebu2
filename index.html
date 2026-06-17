@@ -3938,9 +3938,52 @@ function generateTaxPdf(year,person){
     <button onclick="window.print()" style="padding:11px 28px;background:#2c3e50;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">🖨️ 인쇄 / PDF 저장</button>
   </div>
   </body></html>`;
-  const w=window.open('','_blank');
-  if(w){w.document.write(html);w.document.close();setTimeout(()=>{try{w.focus();}catch(e){}},300);}
-  else showToast('팝업이 차단됐어요. 팝업 허용 후 다시 시도해주세요.');
+  // 1차: 새 창 시도 (데스크탑)
+  let w=null;
+  try{w=window.open('','_blank');}catch(e){w=null;}
+  if(w){
+    w.document.write(html);w.document.close();
+    setTimeout(()=>{try{w.focus();}catch(e){}},300);
+    return;
+  }
+  // 2차: 팝업 차단 시 현재 화면에 전체화면 오버레이로 표시 (모바일/PWA)
+  showTaxPdfOverlay(html);
+}
+// 팝업 차단 환경용 전체화면 오버레이
+function showTaxPdfOverlay(html){
+  // 기존 오버레이 제거
+  const old=document.getElementById('taxpdf-overlay');
+  if(old)old.remove();
+  // body만 추출
+  const bodyMatch=html.match(/<body>([\s\S]*?)<\/body>/);
+  const styleMatch=html.match(/<style>([\s\S]*?)<\/style>/);
+  const bodyContent=bodyMatch?bodyMatch[1]:html;
+  const styleContent=styleMatch?styleMatch[1]:'';
+  const ov=document.createElement('div');
+  ov.id='taxpdf-overlay';
+  ov.style.cssText='position:fixed;inset:0;z-index:9999;background:#fff;overflow:auto;-webkit-overflow-scrolling:touch';
+  // iframe으로 격리 렌더 (스타일 충돌 방지 + 인쇄 정확도)
+  ov.innerHTML=
+    '<div style="position:sticky;top:0;display:flex;gap:8px;padding:10px;background:#2c3e50;z-index:2">'+
+    '<button onclick="printTaxPdfFrame()" style="flex:1;padding:11px;background:#dc2626;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🖨️ 인쇄 / PDF 저장</button>'+
+    '<button onclick="document.getElementById(\'taxpdf-overlay\').remove()" style="padding:11px 18px;background:#475569;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">✕ 닫기</button>'+
+    '</div>'+
+    '<iframe id="taxpdf-frame" style="width:100%;height:calc(100% - 58px);border:none;background:#fff"></iframe>';
+  document.body.appendChild(ov);
+  const frame=document.getElementById('taxpdf-frame');
+  const fdoc=frame.contentDocument||frame.contentWindow.document;
+  fdoc.open();
+  // no-print 버튼 제거한 본문 + 스타일
+  const cleanBody=bodyContent.replace(/<div class="no-print"[\s\S]*?<\/div>\s*$/,'');
+  fdoc.write('<!DOCTYPE html><html><head><meta charset="utf-8"><style>'+styleContent+'</style></head><body>'+cleanBody+'</body></html>');
+  fdoc.close();
+}
+function printTaxPdfFrame(){
+  const frame=document.getElementById('taxpdf-frame');
+  if(frame&&frame.contentWindow){
+    frame.contentWindow.focus();
+    frame.contentWindow.print();
+  }
 }
 
 function exportData(){
