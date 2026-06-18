@@ -282,12 +282,14 @@ body.privacy-on input[type="number"]::placeholder{-webkit-text-security:none}
 #taxpdf-overlay .tp-toolbar{position:sticky;top:0;display:flex;gap:8px;padding:10px;background:#2c3e50;z-index:2}
 #taxpdf-overlay .tp-doc{padding:8px}
 @media print{
+  html,body{background:#fff!important}
   body.tp-printing>*{display:none!important;visibility:hidden!important}
-  body.tp-printing>#taxpdf-overlay{display:block!important;visibility:visible!important;position:static!important;overflow:visible!important}
+  body.tp-printing>#taxpdf-overlay{display:block!important;visibility:visible!important;position:static!important;overflow:visible!important;background:#fff!important}
   body.tp-printing>#taxpdf-overlay *{visibility:visible!important}
   body.tp-printing #taxpdf-overlay .tp-toolbar{display:none!important}
-  body.tp-printing #taxpdf-overlay .tp-doc{padding:0!important}
-  @page{size:A4;margin:8mm}
+  body.tp-printing #taxpdf-overlay .tp-doc{padding:0!important;overflow:visible!important;background:#fff!important}
+  body.tp-printing #taxpdf-overlay .tp-doc .sheet-scaler{overflow:visible!important;background:#fff!important}
+  @page{size:A4 portrait;margin:6mm}
 }
 </style>
 </head>
@@ -3818,29 +3820,39 @@ function generateTaxPdf(year,person){
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>근로소득 원천징수영수증_${year}_${personLabel}</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:'Malgun Gothic','맑은 고딕',sans-serif;background:#fff;color:#000;padding:10px}
+    html,body{background:#fff;color:#000}
+    body{font-family:'Malgun Gothic','맑은 고딕',sans-serif}
+    /* A4 가로폭 고정 캔버스 — 화면/인쇄 폭에 맞춰 scale */
+    .sheet-scaler{width:100%;overflow:hidden}
+    .sheet{width:760px;transform-origin:top left;padding:6px}
     .pg{font-size:9px;text-align:right;margin-bottom:2px}
     .wrap{display:flex;gap:0;border:1.5px solid #000}
-    .col{flex:1}
+    .col{flex:1;min-width:0}
     .col.left{border-right:1.5px solid #000}
     table{width:100%;border-collapse:collapse;table-layout:fixed}
-    td{border:0.6px solid #000;font-size:8.3px;padding:1px 3px;height:17px;vertical-align:middle;line-height:1.15}
-    .vlbl{writing-mode:vertical-rl;text-orientation:upright;letter-spacing:3px;font-weight:600;text-align:center;width:18px;background:#fff}
+    td{border:0.6px solid #000;font-size:8.3px;padding:1px 3px;height:17px;vertical-align:middle;line-height:1.15;word-break:break-all;overflow:hidden}
+    .vlbl{writing-mode:vertical-rl;text-orientation:upright;letter-spacing:2px;font-weight:600;text-align:center;width:16px;background:#fff;white-space:nowrap}
     .amt{text-align:right;font-variant-numeric:tabular-nums}
     .ctr{text-align:center}
     .gray{background:#f2f2f2}
     .b{font-weight:700}
     .doc-title{text-align:center;font-size:15px;font-weight:800;letter-spacing:1px;border:1.5px solid #000;border-bottom:none;padding:5px}
     .doc-sub{text-align:center;font-size:9px;border:1.5px solid #000;border-bottom:none;padding:2px;color:#333}
-    @media print{body{padding:4px}.no-print{display:none}}
+    @media print{
+      @page{size:A4 portrait;margin:6mm}
+      html,body{width:auto}
+      .sheet-scaler{overflow:visible}
+      .no-print{display:none!important}
+    }
   </style></head><body>
+  <div class="sheet-scaler"><div class="sheet">
   <div class="pg">(2쪽)</div>
   <div class="doc-title">근로소득 원천징수영수증</div>
   <div class="doc-sub">( ${year}년 귀속 · 연말정산 시뮬레이션 · 소득자: ${personLabel} )</div>
   <div class="wrap">
   <!-- ───────── 좌측: Ⅳ 정산명세서 소득공제 ───────── -->
   <div class="col left"><table>
-    <colgroup><col style="width:18px"><col style="width:40px"><col style="width:48px"><col><col style="width:42px"><col style="width:88px"></colgroup>
+    <colgroup><col style="width:16px"><col style="width:38px"><col style="width:46px"><col><col style="width:40px"><col style="width:82px"></colgroup>
     <tr><td rowspan="40" class="vlbl">Ⅳ정산명세서</td><td colspan="4">㉑총급여(⑯ 외국인단일세율시 연간근로소득)</td><td class="amt b">${f(r.gross)}</td></tr>
     <tr><td colspan="4">㉒근로소득공제</td><td class="amt">${f(r.earnedDed)}</td></tr>
     <tr><td colspan="4" class="b">㉓근로소득금액</td><td class="amt b">${f(r.earnedIncome)}</td></tr>
@@ -3946,6 +3958,7 @@ function generateTaxPdf(year,person){
     <tr><td class="gray b ctr" style="background:#fff7e6">차감징수세액(${r.refund>=0?'환급':'추가납부'})</td><td colspan="3" class="amt b" style="font-size:13px;color:${r.refund>=0?'#0a7d28':'#c0181f'};background:#fff7e6">${r.refund>=0?'△ ':'+ '}${f(Math.abs(r.refund))} 원</td></tr>
   </table>
   <div style="font-size:8px;color:#666;margin-top:8px;line-height:1.6">※ 본 문서는 가계부 앱의 연말정산 시뮬레이션 결과이며 실제 결과와 차이가 있을 수 있습니다. 차감징수세액 △는 환급, +는 추가납부입니다.<br>생성일: ${new Date().toLocaleString('ko-KR')} &nbsp;|&nbsp; 210mm×297mm</div>
+  </div></div>
   <div class="no-print" style="text-align:center;margin-top:14px">
     <button onclick="window.print()" style="padding:11px 28px;background:#2c3e50;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">🖨️ 인쇄 / PDF 저장</button>
   </div>
@@ -3967,7 +3980,7 @@ function showTaxPdfOverlay(html){
   const scoped=styleContent.replace(/(^|\})\s*([^{}@]+)\{/g,(m,brace,sel)=>{
     if(/@/.test(sel)||/keyframes/.test(sel))return m;
     const s=sel.split(',').map(x=>x.trim()).filter(Boolean).map(x=>{
-      if(x==='body'||x==='*'||x==='html')return '#taxpdf-overlay .tp-doc';
+      if(x==='body'||x==='*'||x==='html'||x==='html,body')return '#taxpdf-overlay .tp-doc';
       return '#taxpdf-overlay .tp-doc '+x;
     }).join(',');
     return brace+' '+s+'{';
@@ -3983,29 +3996,58 @@ function showTaxPdfOverlay(html){
     '<div class="tp-doc">'+bodyContent+'</div>';
   document.body.appendChild(ov);
   window.scrollTo(0,0);
+  // 화면 폭에 맞춰 영수증(760px 고정) 스케일
+  scaleTaxSheet();
+  window.addEventListener('resize',scaleTaxSheet);
+}
+// 영수증 시트를 컨테이너 폭에 맞게 축소 (찌그러짐·페이지 넘침 방지)
+function scaleTaxSheet(){
+  const ov=document.getElementById('taxpdf-overlay');
+  if(!ov)return;
+  const scaler=ov.querySelector('.sheet-scaler');
+  const sheet=ov.querySelector('.sheet');
+  if(!scaler||!sheet)return;
+  const avail=scaler.clientWidth;       // 사용 가능 폭
+  const sheetW=760;                      // 시트 고정 폭
+  const scale=Math.min(1,avail/sheetW);
+  sheet.style.transform='scale('+scale+')';
+  // 스케일 후 실제 차지 높이만큼 컨테이너 높이 보정 (빈 공간 제거)
+  scaler.style.height=(sheet.offsetHeight*scale)+'px';
 }
 function printTaxPdf(){
   const ov=document.getElementById('taxpdf-overlay');
   if(!ov)return;
+  // 인쇄 전: A4 폭(약 718px=210mm-12mm여백)에 맞춰 스케일 재설정
+  const scaler=ov.querySelector('.sheet-scaler');
+  const sheet=ov.querySelector('.sheet');
+  const prevTransform=sheet?sheet.style.transform:'';
+  const prevH=scaler?scaler.style.height:'';
+  if(sheet){
+    const a4=718; // 210mm - 좌우 6mm 여백, px 환산(96dpi)
+    const scale=Math.min(1,a4/760);
+    sheet.style.transform='scale('+scale+')';
+    if(scaler)scaler.style.height=(sheet.offsetHeight*scale)+'px';
+  }
   document.body.classList.add('tp-printing');
-  const cleanup=()=>{document.body.classList.remove('tp-printing');window.removeEventListener('afterprint',cleanup);};
+  const cleanup=()=>{
+    document.body.classList.remove('tp-printing');
+    // 인쇄 후 화면용 스케일 복원
+    if(sheet)sheet.style.transform=prevTransform;
+    if(scaler)scaler.style.height=prevH;
+    scaleTaxSheet();
+    window.removeEventListener('afterprint',cleanup);
+  };
   window.addEventListener('afterprint',cleanup);
   setTimeout(()=>{
     let printed=false;
-    try{
-      // 표준 인쇄 (데스크탑·iOS Safari·대부분 웹뷰)
-      window.print();
-      printed=true;
-    }catch(e){printed=false;}
-    if(!printed){
-      showToast('이 앱에서는 인쇄가 제한돼요. 우측 상단 메뉴의 "인쇄" 또는 "공유"를 이용해주세요.');
-    }
+    try{window.print();printed=true;}catch(e){printed=false;}
+    if(!printed)showToast('이 앱에서는 인쇄가 제한돼요. 우측 상단 메뉴의 "인쇄" 또는 "공유"를 이용해주세요.');
     setTimeout(cleanup,2000);
   },150);
 }
 function closeTaxPdf(){
   const ov=document.getElementById('taxpdf-overlay');
-  if(ov)ov.remove();
+  if(ov){ov.remove();window.removeEventListener('resize',scaleTaxSheet);}
   document.body.classList.remove('tp-printing');
 }
 
