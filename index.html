@@ -377,16 +377,6 @@ body.privacy-on input[type="number"]::placeholder{-webkit-text-security:none}
         </div>
       </div>
     </div>
-    <!-- 적금 요약 sub 카드 -->
-    <div id="h-savings-wrap" style="margin:10px 16px 0;display:none">
-      <div style="background:linear-gradient(135deg,#0d2010,#15321c);border:1px solid var(--green-border);border-radius:16px;padding:16px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <span style="font-size:11px;color:#4ade80;font-weight:600">🏦 적금 현황</span>
-          <span style="font-size:10px;color:var(--text4)" id="h-sav-count"></span>
-        </div>
-        <div id="h-savings-list"></div>
-      </div>
-    </div>
     <!-- 비상금 지표 -->
     <div id="h-emergency-wrap" style="margin:10px 16px 0;display:none">
       <div style="background:var(--card);border:1px solid var(--border2);border-radius:16px;padding:16px;display:flex;align-items:center;gap:16px">
@@ -1729,39 +1719,6 @@ function renderHome(){
       '월 지출 <b style="color:var(--text)">'+fmtShort2(monthlyBurn)+'</b> 기준 <b style="color:'+color+'">'+months.toFixed(1)+'개월</b> 버틸 수 있어요<br>'+
       '<span style="color:'+color+'">'+grade+'</span> <span style="color:var(--text4)">(권장 6개월)</span>';
   }else{emWrap.style.display='none';}
-
-  // 적금 요약 sub 카드 (활성 적금만)
-  const savWrap=document.getElementById('h-savings-wrap');
-  const savListEl=document.getElementById('h-savings-list');
-  if(savWrap&&savListEl){
-    const activeSavs=configs_.filter(cfg=>{
-      if(!cfg.startDate)return false;
-      const cum=getSavingCumulative(cfg,curYear,curMonth);
-      return cum>0||num(cfg.monthlyAmount)>0;
-    });
-    if(activeSavs.length>0){
-      savWrap.style.display='block';
-      document.getElementById('h-sav-count').textContent=activeSavs.length+'개 · 누적 '+fmtShort2(savTotal);
-      savListEl.innerHTML=activeSavs.map((cfg,idx)=>{
-        const cum=getSavingCumulative(cfg,curYear,curMonth);
-        const goal=num(cfg.goal);
-        const pct=goal>0?Math.min(100,cum/goal*100):0;
-        const round=getSavingRound(cfg,curYear,curMonth);
-        const roundLabel=round&&!round.before&&round.cur>0?(round.total>0?round.cur+'/'+round.total+'회차':round.cur+'회차'):'';
-        const isLast=idx===activeSavs.length-1;
-        return '<div style="display:flex;align-items:center;gap:11px;padding:9px 0;'+(isLast?'':'border-bottom:1px solid rgba(74,222,128,.12)')+'">'+
-          (goal>0?svgRing(pct,'#4ade80',44,pct.toFixed(0)+'%'):'<span style="font-size:22px;flex-shrink:0">🏦</span>')+
-          '<div style="flex:1;min-width:0">'+
-          '<div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(cfg.name||'적금')+'</div>'+
-          '<div style="font-size:10px;color:var(--text3);margin-top:1px">'+(roundLabel?'📆 '+roundLabel+' · ':'')+'월 '+fmtShort2(num(cfg.monthlyAmount))+'</div>'+
-          '</div>'+
-          '<div style="text-align:right;flex-shrink:0">'+
-          '<div style="font-size:13px;font-weight:700;color:#4ade80">'+fmt(cum)+'</div>'+
-          (goal>0?'<div style="font-size:9px;color:var(--text4)">목표 '+fmtShort2(goal)+'</div>':'')+
-          '</div></div>';
-      }).join('');
-    }else{savWrap.style.display='none';}
-  }
 
   // 지출 분류
   const catSec=document.getElementById('h-cats-section'),catEl=document.getElementById('h-cats');
@@ -3467,12 +3424,13 @@ function calcEarnedTaxCredit(calcTax,gross){
   if(calcTax<=1300000)credit=calcTax*0.55;
   else credit=715000+(calcTax-1300000)*0.30;
   // 한도 (소득세법 제59조② — 총급여 구간별)
+  // 7천만·1.2억 초과 구간: 5/1000(=0.5%) 적용 (법령 기준)
   let limit;
   if(gross<=33000000)limit=740000;
   else if(gross<=70000000)limit=Math.max(660000,740000-(gross-33000000)*8/1000);
-  else if(gross<=120000000)limit=Math.max(500000,660000-(gross-70000000)*0.5);
-  else limit=Math.max(200000,500000-(gross-120000000)*0.5);
-  return Math.min(credit,limit);
+  else if(gross<=120000000)limit=Math.max(500000,660000-(gross-70000000)*5/1000);
+  else limit=Math.max(200000,500000-(gross-120000000)*5/1000);
+  return Math.floor(Math.min(credit,limit));
 }
 function calcIncomeTax(base){
   if(base<=0)return 0;
@@ -3489,7 +3447,8 @@ const TAX_LINK_TYPES={
   pensionSaving:{label:'⑥⓪ 연금저축',field:'pensionSaving',src:'적금'},
   pensionIRP:{label:'㊾ 퇴직연금(IRP)',field:'retirePensionWorker',src:'적금'},
   longtermFund:{label:'㊹ 장기집합투자증권저축',field:'longtermFund',src:'적금'},
-  pensionSavingInv:{label:'⑥⓪ 연금저축(투자)',field:'pensionSaving',src:'투자'},
+  pensionSavingInv:{label:'⑥⓪ 연금저축펀드',field:'pensionSaving',src:'투자'},
+  pensionIRPInv:{label:'㊾ 퇴직연금(IRP)',field:'retirePensionWorker',src:'투자'},
   isaPension:{label:'⑥⓪-1 ISA만기 연금계좌',field:'isaPension',src:'투자'},
   longtermFundInv:{label:'㊹ 장기집합투자증권저축',field:'longtermFund',src:'투자'},
   housingLoan:{label:'㉞ 장기주택저당차입금(이자)',field:'housingLoan',src:'대출'},
@@ -3762,11 +3721,11 @@ function computeTaxSettlement(year,person){
     totalTaxCredit=earnedTaxCredit+marriageCredit+childCredit+birthCredit+pensionCredit+isaCredit+insCredit+insDisabledCredit+medCredit+medInfertility+eduCredit+donationCredit+rentCredit+housingLoanCredit+taxAssociation+foreignTaxCredit+standardCredit;
   }
 
-  const determinedTax=Math.max(0,calcTax-totalTaxCredit);
+  const determinedTax=Math.max(0,Math.floor(calcTax-totalTaxCredit));
   const localIncomeTax=Math.floor(determinedTax*0.1);
   const totalDetermined=determinedTax+localIncomeTax;
   const prepaid=inc.prepaidTax+inc.prepaidLocal;
-  const refund=prepaid-totalDetermined;
+  const refund=Math.round(prepaid-totalDetermined);
 
   return {inc,gross,earnedDed,earnedIncome,
     personalDed,basicSelf,hasSpouse,basicDep,addElderly,addDisabled,addFemale,addSingleParent,
@@ -3879,8 +3838,8 @@ function renderTaxSim(){
     `<div style="background:var(--card);border:1px solid var(--border2);border-radius:14px;padding:16px;margin-bottom:8px">
       <div style="font-size:11px;color:var(--text3);margin-bottom:8px">📥 ${year}년 ${personLabel} 연간 수입 (수입 탭에서 자동 집계)</div>
       ${r.inc.estimated?`<div style="background:rgba(251,191,36,.12);border:1px solid #fbbf2466;border-radius:10px;padding:9px 11px;margin-bottom:10px">
-        <div style="font-size:11px;color:#fbbf24;font-weight:700;margin-bottom:2px">📈 연간 추정치 적용 중</div>
-        <div style="font-size:10px;color:var(--text3);line-height:1.5">${r.inc.enteredMonths}개월치 입력됨 → 월평균 기준으로 12개월 추정. 실제 입력액 ${fmt(r.inc.actualGross)} × (12/${r.inc.enteredMonths}) = ${fmt(r.gross)}. 나머지 달도 입력하면 자동으로 실제값이 반영돼요.</div>
+        <div style="font-size:11px;color:#fbbf24;font-weight:700;margin-bottom:2px">📈 ${personLabel} 연간 추정치 적용 중</div>
+        <div style="font-size:10px;color:var(--text3);line-height:1.5">${personLabel} 수입이 ${r.inc.enteredMonths}개월치 입력됨 → 월평균 기준으로 12개월 추정. 실제 입력액 ${fmt(r.inc.actualGross)} × (12/${r.inc.enteredMonths}) = ${fmt(r.gross)}. 나머지 달도 입력하면 자동으로 실제값이 반영돼요.</div>
       </div>`:''}
       ${row('총급여 (정기+상여)'+(r.inc.estimated?' (추정)':''),r.gross,{big:true,color:r.inc.estimated?'#fbbf24':'#4ade80'})}
       ${row('└ 정기급여',r.inc.regularGross,{sub:true})}
