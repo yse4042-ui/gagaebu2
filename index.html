@@ -580,6 +580,7 @@ body.privacy-on input[type="number"]::placeholder{-webkit-text-security:none}
         <div style="font-size:11px;color:#fca5a5;margin-bottom:4px;font-weight:600">이달 총 지출</div>
         <div style="font-size:27px;font-weight:800;letter-spacing:-.03em;color:var(--red)" id="e-total">0원</div>
         <div style="font-size:11px;color:var(--text3);margin-top:4px" id="e-count">0건</div>
+        <div style="font-size:10px;color:#93c5fd;margin-top:3px;display:none" id="e-budget-note"></div>
       </div>
       <div id="e-donut"></div>
     </div>
@@ -1742,13 +1743,19 @@ function renderHome(){
 
   // 지출 분류
   const catSec=document.getElementById('h-cats-section'),catEl=document.getElementById('h-cats');
-  if(exps.length>0){
+  // 카테고리 분류는 예산 연동 지출 제외 (홈 '지출' 정의와 일치, 예산은 아래 별도 섹션에서 표시)
+  const catExps=exps.filter(e=>!budgetFixedIds.includes(e.fixedId));
+  const budgetFx=(ls('budget:fixed')||getDefaultFixed()).filter(f=>f.isBudget&&isFxActive(f,curYear,curMonth));
+  const hasBudgetUsage=budgetFx.some(f=>exps.some(e=>e.fixedId===f.id));
+  if(catExps.length>0||hasBudgetUsage){
     catSec.style.display='block';
-    const byCat={};exps.forEach(e=>{byCat[e.cat]=(byCat[e.cat]||0)+num(e.amount);});
+    let donutHTML='';
+    if(catExps.length>0){
+    const byCat={};catExps.forEach(e=>{byCat[e.cat]=(byCat[e.cat]||0)+num(e.amount);});
     const sorted=Object.keys(byCat).sort((a,b)=>byCat[b]-byCat[a]);
     const donutSegs=sorted.map(c=>({value:byCat[c],color:(CAT_MAP[c]||CAT_MAP.etc).color}));
     const topCat=CAT_MAP[sorted[0]]||CAT_MAP.etc;
-    const donutHTML='<div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border)">'+
+    donutHTML='<div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border)">'+
       svgDonut(donutSegs,108,fmtShort2(totalExp),'총 지출')+
       '<div style="flex:1;min-width:0">'+
       sorted.slice(0,4).map(c=>{
@@ -1762,7 +1769,7 @@ function renderHome(){
       }).join('')+
       (sorted.length>4?`<div style="font-size:10px;color:var(--text4)">외 ${sorted.length-4}개 분류</div>`:'')+
       '</div></div>';
-    catEl.innerHTML=donutHTML+sorted.map(c=>{
+    donutHTML+=sorted.map(c=>{
       const cat=CAT_MAP[c]||CAT_MAP.etc;const pct=totalExp?Math.min(100,byCat[c]/totalExp*100):0;
       return `<div class="cat-total-row"><span style="font-size:16px">${cat.icon}</span>
         <div class="cat-total-bar">
@@ -1770,10 +1777,11 @@ function renderHome(){
           <div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:${cat.color}"></div></div>
         </div></div>`;
     }).join('');
-    // 예산 항목별 지출 (예산형 고정항목)
-    const budgetFx=(ls('budget:fixed')||getDefaultFixed()).filter(f=>f.isBudget&&isFxActive(f,curYear,curMonth));
-    if(budgetFx.length>0){
-      catEl.innerHTML+='<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)"><div style="font-size:11px;font-weight:700;color:#60a5fa;margin-bottom:10px">📊 예산 항목별 지출</div>'+
+    }
+    catEl.innerHTML=donutHTML;
+    // 예산 항목별 지출 (예산형 고정항목) — 일반 지출 유무와 독립적으로 표시
+    if(budgetFx.length>0&&hasBudgetUsage){
+      catEl.innerHTML+='<div style="'+(catExps.length>0?'margin-top:14px;padding-top:14px;border-top:1px solid var(--border)':'')+'"><div style="font-size:11px;font-weight:700;color:#60a5fa;margin-bottom:10px">📊 예산 항목별 지출</div>'+
         budgetFx.map(f=>{
           const used=exps.filter(e=>e.fixedId===f.id).reduce((s,e)=>s+num(e.amount),0);
           const budget=num(f.amount);
@@ -1989,7 +1997,7 @@ function renderAnnual(){
     monthlyLoan.push(m<=cutoff?mLoan:0);
     if(m<=cutoff){
       totalInc+=mInc;totalExp+=mExp;totalLoan+=mLoan;annFixedTotal+=mFixed;
-      exps.forEach(e=>{annByCat[e.cat]=(annByCat[e.cat]||0)+num(e.amount);});
+      exps.filter(e=>!budgetFxIds.includes(e.fixedId)).forEach(e=>{annByCat[e.cat]=(annByCat[e.cat]||0)+num(e.amount);});
       annIncTypes.me+=num(inc.me);annIncTypes.sp+=num(inc.sp);annIncTypes.extra+=num(inc.extra);
       ['me','sp'].forEach(t=>{
         // 세전급여(정기)는 체크된 수입항목 합으로 집계
@@ -2424,6 +2432,19 @@ function renderExpense(){
   const total=exps.reduce((a,e)=>a+num(e.amount),0);
   document.getElementById('e-total').textContent=fmt(total);
   document.getElementById('e-count').textContent=exps.length+'건';
+  // 예산형 고정항목에 연결된 지출액 — 홈탭에선 '고정'으로 집계되므로 안내 표시
+  const fixedForNote=ls('budget:fixed')||getDefaultFixed();
+  const budgetFixedIds=fixedForNote.filter(f=>f.isBudget).map(f=>f.id);
+  const budgetLinked=exps.filter(e=>budgetFixedIds.includes(e.fixedId)).reduce((a,e)=>a+num(e.amount),0);
+  const noteEl=document.getElementById('e-budget-note');
+  if(noteEl){
+    if(budgetLinked>0){
+      noteEl.style.display='block';
+      noteEl.innerHTML='📊 이 중 예산 연동 '+fmt(budgetLinked)+' 포함 <span style="color:var(--text4)">(홈에선 \'고정\'으로 집계)</span>';
+    }else{
+      noteEl.style.display='none';
+    }
+  }
   renderFixedBudget();
   renderBudget();
   // 카테고리 도넛
@@ -2775,6 +2796,11 @@ function renderSavings(){
         <div><div style="font-size:10px;color:var(--text3);margin-bottom:4px">🏁 종료월</div>
           <input type="month" class="inline-input" style="border-bottom:1px solid var(--border2);padding-bottom:2px;color:var(--red)" value="${cfg.endDate||''}" onchange="${oc('endDate')}"/></div>
       </div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:10px;color:#93c5fd;margin-bottom:4px;font-weight:600">🧾 연말정산 공제 연동</div>
+        ${taxLinkSelect('적금',cfg.taxLink,oc('taxLink'))}
+        ${cfg.taxLink&&cfg.taxLink!=='none'?`<div style="font-size:9.5px;color:var(--text4);margin-top:4px">📥 올해 납입액 ${fmt(getSavingAnnualPayment(cfg,curYear))}이 연말정산에 자동 반영돼요</div>`:''}
+      </div>
       <div style="background:var(--card2);border-radius:8px;padding:10px;border:1px solid var(--border);margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--text2)">납입 원금</span><span style="color:var(--accent);font-weight:700">${fmt(cumul)}</span></div>
         ${intH}${progH}
@@ -2797,8 +2823,7 @@ function renderSavings(){
     </div>`;
   }).join('');
 }
-function updSavingConfig(i,k,v){const c=ls('saving-configs')||getDefaultSavingConfigs();c[i][k]=v;lss('saving-configs',c);renderSavings();renderHome();}
-function addSaving(){const c=ls('saving-configs')||getDefaultSavingConfigs();c.push({id:Date.now().toString(),name:'새 적금',monthlyAmount:'',rate:'',goal:'',startDate:'',endDate:'',extras:[],inMonthly:true});lss('saving-configs',c);renderSavings();}
+function updSavingConfig(i,k,v){const c=ls('saving-configs')||getDefaultSavingConfigs();c[i][k]=v;lss('saving-configs',c);renderSavings();renderHome();}function addSaving(){const c=ls('saving-configs')||getDefaultSavingConfigs();c.push({id:Date.now().toString(),name:'새 적금',monthlyAmount:'',rate:'',goal:'',startDate:'',endDate:'',extras:[],inMonthly:true});lss('saving-configs',c);renderSavings();}
 function delSavingConfig(i){if(!confirm('삭제할까요?'))return;const c=ls('saving-configs')||getDefaultSavingConfigs();c.splice(i,1);lss('saving-configs',c);renderSavings();renderHome();}
 function moveSaving(i,dir){const c=ls('saving-configs')||getDefaultSavingConfigs();const j=i+dir;if(j<0||j>=c.length)return;[c[i],c[j]]=[c[j],c[i]];lss('saving-configs',c);renderSavings();renderHome();}
 function toggleSavMonthExclude(i){
@@ -2860,7 +2885,8 @@ function calcDepositInterest(d){
   if(!r||!p||!d.startDate||!d.endDate)return 0;
   const[sy,sm]=d.startDate.split('-').map(Number);
   const[ey,em]=d.endDate.split('-').map(Number);
-  const months=(ey-sy)*12+(em-sm);
+  // 만기 개월수: 시작월·종료월 양끝 포함 (예: 1월~12월 = 12개월)
+  const months=(ey-sy)*12+(em-sm)+1;
   if(months<=0)return 0;
   if(d.interestType==='compound'){return Math.round(p*(Math.pow(1+r/12,months)-1));}
   return Math.round(p*r*months/12);
@@ -3039,6 +3065,11 @@ function renderLoans(){
           <div style="font-size:10px;color:var(--text4);margin-top:1px">${l.excludeFromExpense?'이 대출은 홈 지출/잔여 계산에서 빠져요':'체크하면 수입탭 공제와 이중계산을 방지해요'}</div>
         </div>
       </div>
+      <div style="margin-bottom:12px">
+        <div style="font-size:10px;color:#93c5fd;margin-bottom:4px;font-weight:600">🧾 연말정산 공제 연동</div>
+        ${taxLinkSelect('대출',l.taxLink,`updLoanField(${idx},'taxLink',this.value)`)}
+        ${l.taxLink==='housingLoan'?`<div style="font-size:9.5px;color:var(--text4);margin-top:4px">📥 올해 이자상환액 ${fmt(getLoanAnnualInterest(l,curYear))}이 연말정산에 자동 반영돼요</div>`:l.taxLink==='housingRent'?`<div style="font-size:9.5px;color:var(--text4);margin-top:4px">📥 올해 원리금상환액 ${fmt(getLoanAnnualPayment(l,curYear))}이 연말정산에 자동 반영돼요</div>`:''}
+      </div>
       <div style="margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="color:#60a5fa">상환 진행률</span><span style="color:#93c5fd;font-weight:700">${repaidPct.toFixed(1)}%</span></div>
         <div style="background:var(--card2);border-radius:6px;height:8px;overflow:hidden"><div style="width:${repaidPct}%;background:linear-gradient(90deg,#3b82f6,#60a5fa);height:8px;border-radius:6px;transition:width .6s"></div></div>
@@ -3112,6 +3143,7 @@ function delLoanRate(idx,ri){const loans=getLoans();loans[idx].rateChanges.splic
 // 무이자 인정상여
 function toggleLoanImputed(idx){const loans=getLoans();loans[idx].useImputed=!loans[idx].useImputed;lss('loans',loans);renderLoans();}
 function updLoanImputed(idx,k,v){const loans=getLoans();loans[idx][k]=v;lss('loans',loans);renderLoans();}
+function updLoanField(idx,k,v){const loans=getLoans();loans[idx][k]=v;lss('loans',loans);renderLoans();renderHome();}
 // 인정상여 계산 UI + 결과
 function renderImputedCalc(l,idx){
   // 국세청 가중평균차입이자율/당좌대출이자율 기본 4.6%
@@ -3195,9 +3227,17 @@ function getDefaultFixed(){return[
 function getChecks(){return ls('fx-check:'+mk())||{};}
 // 고정지출이 보고 있는 달에 활성화됐는지 (시작년월 이후만)
 function isFxActive(f,y,m){
-  if(!f.startYM)return true; // 시작월 없으면 항상 활성
-  const[sy,sm]=f.startYM.split('-').map(Number);
-  return y>sy||(y===sy&&m>=sm);
+  // 시작월 체크
+  if(f.startYM){
+    const[sy,sm]=f.startYM.split('-').map(Number);
+    if(y<sy||(y===sy&&m<sm))return false;
+  }
+  // 종료월 체크 (종료월 이후엔 비활성)
+  if(f.endYM){
+    const[ey,em]=f.endYM.split('-').map(Number);
+    if(y>ey||(y===ey&&m>em))return false;
+  }
+  return true;
 }
 // 자동이체일이 지났는지 판정 (보고 있는 달 기준, 저장 안 함)
 function isAutoPassed(autoDay){
@@ -3306,6 +3346,7 @@ function renderFixed(){
             <input class="inline-input" style="font-size:14px;font-weight:${checked?600:500};color:${active?nameColor:'var(--text3)'};flex:1;${checked?'text-decoration:line-through;':''}"
               value="${f.name}" placeholder="항목명" onchange="updFixed(${i},'name',this.value)"/>
             ${!active&&f.startYM?`<span style="font-size:9px;color:var(--text4);background:var(--card);border:1px solid var(--border2);padding:2px 6px;border-radius:99px;flex-shrink:0">⏳ ${f.startYM} 시작</span>`:''}
+            ${!active&&f.endYM?`<span style="font-size:9px;color:#f87171;background:var(--card);border:1px solid var(--red-border);padding:2px 6px;border-radius:99px;flex-shrink:0">🏁 ${f.endYM} 종료</span>`:''}
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
             <input type="number" class="inline-input" style="color:${amtColor};width:90px;border-bottom:1px solid var(--border2);font-weight:600"
@@ -3345,6 +3386,9 @@ function renderFixed(){
             <span style="font-size:10px;color:var(--text4);margin-left:6px">▶️ 시작:</span>
             <input type="month" class="inline-input" style="width:120px;border-bottom:1px solid var(--green-border);color:var(--green);font-size:11px;font-weight:600"
               value="${f.startYM||''}" onchange="updFixed(${i},'startYM',this.value)"/>
+            <span style="font-size:10px;color:var(--text4);margin-left:6px">🏁 종료:</span>
+            <input type="month" class="inline-input" style="width:120px;border-bottom:1px solid var(--red-border);color:var(--red);font-size:11px;font-weight:600"
+              value="${f.endYM||''}" onchange="updFixed(${i},'endYM',this.value)" title="비워두면 계속 유지"/>
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0">
@@ -3414,11 +3458,113 @@ function calcIncomeTax(base){
   for(const[limit,rate,deduct]of brackets){if(base<=limit)return Math.floor(base*rate-deduct);}
   return 0;
 }
+
+// ── 연말정산 자동 연동 ────────────────────────────────────────────
+// 자산/대출에 붙일 수 있는 공제 유형 (taxLink 필드값)
+const TAX_LINK_TYPES={
+  none:{label:'연동 안 함',field:null},
+  housingSaving:{label:'㊴ 주택청약종합저축',field:'housingSaving',src:'적금'},
+  pensionSaving:{label:'⑥⓪ 연금저축',field:'pensionSaving',src:'적금'},
+  pensionIRP:{label:'㊾ 퇴직연금(IRP)',field:'retirePensionWorker',src:'적금'},
+  longtermFund:{label:'㊹ 장기집합투자증권저축',field:'longtermFund',src:'적금'},
+  pensionSavingInv:{label:'⑥⓪ 연금저축(투자)',field:'pensionSaving',src:'투자'},
+  isaPension:{label:'⑥⓪-1 ISA만기 연금계좌',field:'isaPension',src:'투자'},
+  longtermFundInv:{label:'㊹ 장기집합투자증권저축',field:'longtermFund',src:'투자'},
+  housingLoan:{label:'㉞ 장기주택저당차입금(이자)',field:'housingLoan',src:'대출'},
+  housingRent:{label:'㉞ 주택임차차입금(원리금)',field:'housingRent',src:'대출'}
+};
+// 적금: 해당 연도 연간 납입액 (월납입×활성월수 + 추가납입)
+function getSavingAnnualPayment(cfg,year){
+  if(!cfg||!cfg.startDate)return 0;
+  let sum=0;
+  for(let m=1;m<=12;m++){
+    if((cfg.excludeMonths||[]).includes(mk(year,m)))continue;
+    const[sy,sm]=cfg.startDate.split('-').map(Number);
+    if(year<sy||(year===sy&&m<sm))continue;
+    if(cfg.endDate){const[ey,em]=cfg.endDate.split('-').map(Number);if(year>ey||(year===ey&&m>em))continue;}
+    sum+=num(cfg.monthlyAmount);
+  }
+  // 추가납입 (해당 연도)
+  (cfg.extras||[]).forEach(e=>{
+    if(!e.date)return;
+    const[ey,em]=e.date.split('-').map(Number);
+    if(ey===year)sum+=num(e.amount);
+  });
+  return sum;
+}
+// 투자: 해당 연도 연간 매수액(cost) 합계
+function getInvestAnnualPayment(h,year){
+  if(!h||!h.history)return 0;
+  return h.history.filter(r=>r.ym&&r.ym.startsWith(year+'-')).reduce((a,r)=>a+num(r.cost),0);
+}
+// 대출: 해당 연도 연간 이자상환액 합계 (주택담보대출 이자공제용)
+function getLoanAnnualInterest(loan,year){
+  const sch=getLoanSchedule(loan);
+  return sch.filter(e=>e.year===year).reduce((a,e)=>a+e.interest,0);
+}
+// 대출: 해당 연도 연간 원리금상환액 합계 (전세자금대출 원리금공제용)
+function getLoanAnnualPayment(loan,year){
+  const sch=getLoanSchedule(loan);
+  return sch.filter(e=>e.year===year).reduce((a,e)=>a+e.payment,0);
+}
+// 특정 공제 field에 연동된 모든 자산/대출의 연간 합계
+function getLinkedDeductionTotal(field,year){
+  let total=0;
+  // 적금
+  (ls('saving-configs')||[]).forEach(cfg=>{
+    const t=TAX_LINK_TYPES[cfg.taxLink];
+    if(t&&t.field===field)total+=getSavingAnnualPayment(cfg,year);
+  });
+  // 투자
+  (ls('invest-holdings')||[]).forEach(h=>{
+    const t=TAX_LINK_TYPES[h.taxLink];
+    if(t&&t.field===field)total+=getInvestAnnualPayment(h,year);
+  });
+  // 대출 (이자 또는 원리금)
+  (ls('loans')||[]).forEach(loan=>{
+    const t=TAX_LINK_TYPES[loan.taxLink];
+    if(!t||t.field!==field)return;
+    if(t.field==='housingLoan')total+=getLoanAnnualInterest(loan,year);
+    else if(t.field==='housingRent')total+=getLoanAnnualPayment(loan,year);
+  });
+  return Math.round(total);
+}
+// 특정 공제 field에 연동된 항목들의 출처 정보 (표시용)
+function getLinkedDeductionSources(field,year){
+  const sources=[];
+  (ls('saving-configs')||[]).forEach(cfg=>{
+    const t=TAX_LINK_TYPES[cfg.taxLink];
+    if(t&&t.field===field){const amt=getSavingAnnualPayment(cfg,year);if(amt>0)sources.push({name:cfg.name||'적금',amt,src:'적금'});}
+  });
+  (ls('invest-holdings')||[]).forEach(h=>{
+    const t=TAX_LINK_TYPES[h.taxLink];
+    if(t&&t.field===field){const amt=getInvestAnnualPayment(h,year);if(amt>0)sources.push({name:h.name||'투자',amt,src:'투자'});}
+  });
+  (ls('loans')||[]).forEach(loan=>{
+    const t=TAX_LINK_TYPES[loan.taxLink];
+    if(!t||t.field!==field)return;
+    const amt=t.field==='housingLoan'?getLoanAnnualInterest(loan,year):getLoanAnnualPayment(loan,year);
+    if(amt>0)sources.push({name:loan.name||'대출',amt,src:t.field==='housingLoan'?'대출이자':'대출원리금'});
+  });
+  return sources;
+}
+
+// 연말정산 연동 선택 셀렉트 HTML 생성 (src: '적금'|'투자'|'대출')
+function taxLinkSelect(src,curVal,onchangeCall){
+  const opts=Object.keys(TAX_LINK_TYPES).filter(k=>k==='none'||TAX_LINK_TYPES[k].src===src);
+  const optsHtml=opts.map(k=>`<option value="${k}"${(curVal||'none')===k?' selected':''}>${TAX_LINK_TYPES[k].label}</option>`).join('');
+  return `<select onchange="${onchangeCall}" style="width:100%;background:var(--card2);border:1px solid var(--blue-border);border-radius:8px;color:#93c5fd;font-size:12px;font-weight:600;padding:6px 8px;font-family:'Noto Sans KR',sans-serif">${optsHtml}</select>`;
+}
+
 function getAnnualIncome(year,person){
   let regularGross=0,bonus=0,deductNP=0,deductHI=0,deductEI=0,deductLTC=0,tax=0,localTax=0;
+  let enteredMonths=0; // 실제 수입이 입력된 월 수
   for(let m=1;m<=12;m++){
     const inc=ls('inc:'+mk(year,m))||{};
-    (inc[person+'Bonus']||[]).forEach(b=>{if(b.regular!==false)regularGross+=num(b.amount);else bonus+=num(b.amount);});
+    const monthBonus=(inc[person+'Bonus']||[]);
+    const monthHasIncome=monthBonus.some(b=>num(b.amount)>0);
+    if(monthHasIncome)enteredMonths++;
+    monthBonus.forEach(b=>{if(b.regular!==false)regularGross+=num(b.amount);else bonus+=num(b.amount);});
     (inc[person+'Deds']||[]).forEach(d=>{
       const nm=(d.name||'').replace(/\s/g,'');const amt=num(d.amount);
       if(nm.includes('국민연금')||nm.includes('연금'))deductNP+=amt;
@@ -3429,7 +3575,23 @@ function getAnnualIncome(year,person){
       else if(nm.includes('소득세'))tax+=amt;
     });
   }
-  return {gross:regularGross+bonus,regularGross,bonus,deductNP,deductHI,deductEI,deductLTC,prepaidTax:tax,prepaidLocal:localTax};
+  // 연간 추정: 현재 연도이고 아직 12개월 다 입력 안됐으면 평균×12로 추정
+  const now=new Date();
+  const isCurrentYear=(year===now.getFullYear());
+  let estimated=false,actualGross=regularGross+bonus;
+  if(isCurrentYear&&enteredMonths>0&&enteredMonths<12){
+    const factor=12/enteredMonths;
+    regularGross=Math.round(regularGross*factor);
+    bonus=Math.round(bonus*factor);
+    deductNP=Math.round(deductNP*factor);
+    deductHI=Math.round(deductHI*factor);
+    deductEI=Math.round(deductEI*factor);
+    deductLTC=Math.round(deductLTC*factor);
+    tax=Math.round(tax*factor);
+    localTax=Math.round(localTax*factor);
+    estimated=true;
+  }
+  return {gross:regularGross+bonus,regularGross,bonus,deductNP,deductHI,deductEI,deductLTC,prepaidTax:tax,prepaidLocal:localTax,enteredMonths,estimated,actualGross};
 }
 function getTaxData(year,person){return ls('taxsim:'+year+':'+person)||{};}
 function setTaxData(year,person,data){lss('taxsim:'+year+':'+person,data);}
@@ -3444,6 +3606,14 @@ function computeTaxSettlement(year,person){
   const gross=inc.gross;
   const earnedDed=calcEarnedIncomeDeduction(gross);
   const earnedIncome=Math.max(0,gross-earnedDed);
+  // 연동 헬퍼: 수동입력값이 있으면 우선, 없으면(빈값) 연동 자산/대출 합계 사용
+  // 본인(me)에만 자동 연동 적용 (자산·대출은 본인 명의 기준)
+  const linkField=(key,field)=>{
+    const manual=d[key];
+    if(manual!==undefined&&manual!==''&&manual!==null)return num(manual);
+    if(person==='me')return getLinkedDeductionTotal(field,year);
+    return 0;
+  };
 
   // ── 1. 인적공제 ──────────────────────────────────────────
   const basicSelf=1500000;
@@ -3463,21 +3633,21 @@ function computeTaxSettlement(year,person){
 
   // ── 3. 특별소득공제 ㉝㉞ ─────────────────────────────────
   const healthDed=inc.deductHI+inc.deductLTC+inc.deductEI; // ㉝ 건강+장기요양+고용 (자동)
-  const housingLoanDed=num(d.housingLoan)||0;  // ㉞ 장기주택저당차입금 이자
-  const housingRentDed=num(d.housingRent)||0;  // ㉞ 주택임차차입금 원리금상환액
+  const housingLoanDed=linkField('housingLoan','housingLoan');  // ㉞ 장기주택저당차입금 이자 (대출 연동)
+  const housingRentDed=linkField('housingRent','housingRent');  // ㉞ 주택임차차입금 원리금상환액 (대출 연동)
   const specialIncomeDed=healthDed+housingLoanDed+housingRentDed;
 
   // ── 4. 그 밖의 소득공제 ㊲~㊺ ────────────────────────────
   const pensionSavingOld=num(d.pensionSavingOld)||0; // ㊲ 개인연금저축(2000년이전, 40%·72만한도)
   const smeFund=num(d.smeFund)||0;                // ㊳ 소기업·소상공인 공제부금(노란우산)
-  const housingSaving=num(d.housingSaving)||0;    // ㊴ 주택청약종합저축
+  const housingSaving=linkField('housingSaving','housingSaving');    // ㊴ 주택청약종합저축 (적금 연동)
   const housingSubscriptionOld=num(d.housingSubscriptionOld)||0; // ㊴ 청약저축
   const workerHousingSaving=num(d.workerHousingSaving)||0; // ㊴ 근로자주택마련저축
   const sme=num(d.smeStock)||0;                   // ㊵ 투자조합출자 등
   const cardDed=num(d.cardDeduction)||0;          // ㊶ 신용카드 등 사용액
   const employeeStock=num(d.employeeStock)||0;    // ㊷ 우리사주조합 출연금(400만한도)
   const smeEmployee=num(d.smeEmployee)||0;        // ㊸ 고용유지 중소기업 근로자
-  const longtermFund=num(d.longtermFund)||0;      // ㊹ 장기집합투자증권저축
+  const longtermFund=linkField('longtermFund','longtermFund');      // ㊹ 장기집합투자증권저축 (적금·투자 연동)
   const youthFund=num(d.youthFund)||0;            // ㊺ 청년형장기집합투자증권저축
   const otherIncomeDed=pensionSavingOld+smeFund+housingSaving+housingSubscriptionOld+workerHousingSaving+sme+cardDed+employeeStock+smeEmployee+longtermFund+youthFund;
 
@@ -3504,9 +3674,9 @@ function computeTaxSettlement(year,person){
 
   // 연금계좌 세액공제 ⑤⑧~⑥⓪ (퇴직연금·연금저축·ISA)
   const retirePensionScience=num(d.retirePensionScience)||0; // ㊽ 과학기술인공제회
-  const retirePensionWorker=num(d.retirePensionWorker)||0;   // ㊾ 근로자퇴직급여(IRP)
-  const pensionSaving=num(d.pensionSaving)||0;               // ⑥⓪ 연금저축
-  const isaPension=num(d.isaPension)||0;                     // ⑥⓪-1 ISA만기 연금계좌 납입
+  const retirePensionWorker=linkField('retirePensionWorker','retirePensionWorker');   // ㊾ 근로자퇴직급여(IRP) (적금 연동)
+  const pensionSaving=linkField('pensionSaving','pensionSaving');               // ⑥⓪ 연금저축 (적금·투자 연동)
+  const isaPension=linkField('isaPension','isaPension');                     // ⑥⓪-1 ISA만기 연금계좌 납입 (투자 연동)
   const pensionAccountLegacy=num(d.pensionAccount)||0; // 기존 통합입력 호환
   const pensionTotal=Math.min(pensionSaving,6000000)+retirePensionWorker+retirePensionScience+pensionAccountLegacy;
   const pensionBase=Math.min(pensionTotal,9000000);
@@ -3643,17 +3813,34 @@ function renderTaxSim(){
     }
   };
   // 입력 필드 헬퍼 (입력 시 자동 공제율·공제액 표시)
+  // 연말정산 입력 key → 연동 field 매핑
+  const linkFieldMap={housingLoan:'housingLoan',housingRent:'housingRent',housingSaving:'housingSaving',longtermFund:'longtermFund',pensionSaving:'pensionSaving',retirePensionWorker:'retirePensionWorker',isaPension:'isaPension'};
   const numField=(key,label,hint)=>{
     const info=calcInfo(key);
     const badge=info?`<div style="font-size:9.5px;margin-top:3px;display:flex;align-items:center;gap:5px;flex-wrap:wrap">
       <span style="background:${info.type==='세액공제'?'rgba(74,222,128,.15)':'rgba(96,165,250,.15)'};color:${info.type==='세액공제'?'#4ade80':'#60a5fa'};border:1px solid ${info.type==='세액공제'?'var(--green-border)':'var(--blue-border)'};padding:1px 6px;border-radius:99px;font-weight:700">${info.type} ${info.rate}</span>
       <span style="color:${info.type==='세액공제'?'#4ade80':'#60a5fa'};font-weight:700">→ ${fmt(info.ded)}</span>
       ${info.note?`<span style="color:var(--text4)">${info.note}</span>`:''}</div>`:'';
+    // 연동 표시: 이 항목에 연동된 자산/대출이 있고, 수동입력이 비어있으면 자동값 안내
+    let linkInfo='';
+    const lf=linkFieldMap[key];
+    const manualEmpty=(d[key]===undefined||d[key]===''||d[key]===null);
+    if(lf&&person==='me'){
+      const sources=getLinkedDeductionSources(lf,parseInt(year));
+      if(sources.length>0){
+        const total=sources.reduce((a,s)=>a+s.amt,0);
+        linkInfo=`<div style="font-size:9.5px;margin-top:3px;padding:5px 7px;background:rgba(96,165,250,.1);border:1px solid var(--blue-border);border-radius:6px">
+          <span style="color:#93c5fd;font-weight:700">🔗 자동 연동 ${fmt(total)}</span>
+          <span style="color:var(--text4)"> (${sources.map(s=>s.name+' '+fmt(s.amt)).join(', ')})</span>
+          ${manualEmpty?'<span style="color:#4ade80"> · 적용됨</span>':'<span style="color:#fbbf24"> · 수동입력 우선(아래 값 사용)</span>'}</div>`;
+      }
+    }
+    const placeholder=(manualEmpty&&lf&&person==='me'&&getLinkedDeductionTotal(lf,parseInt(year))>0)?fmt(getLinkedDeductionTotal(lf,parseInt(year))).replace('원',''):'0';
     return `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div style="flex:1"><div style="font-size:12px;color:var(--text2)">${label}</div>${hint?`<div style="font-size:9px;color:var(--text4)">${hint}</div>`:''}</div>
-        <input type="number" value="${d[key]||''}" placeholder="0" onchange="updTaxData('${key}',this.value)" style="width:120px;background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;padding:7px;text-align:right;font-family:inherit"/></div>
-      ${badge}</div>`;
+        <input type="number" value="${d[key]||''}" placeholder="${placeholder}" onchange="updTaxData('${key}',this.value)" style="width:120px;background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;padding:7px;text-align:right;font-family:inherit"/></div>
+      ${linkInfo}${badge}</div>`;
   };
   const checkField=(key,label)=>`<div onclick="updTaxData('${key}',${d[key]?'false':'true'})" style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer">
     <span style="width:18px;height:18px;border-radius:5px;border:1px solid ${d[key]?'var(--accent-border)':'var(--border2)'};background:${d[key]?'var(--accent)':'transparent'};color:#0f172a;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:800">${d[key]?'✓':''}</span>
@@ -3669,11 +3856,15 @@ function renderTaxSim(){
     // 자동 집계된 수입
     `<div style="background:var(--card);border:1px solid var(--border2);border-radius:14px;padding:16px;margin-bottom:8px">
       <div style="font-size:11px;color:var(--text3);margin-bottom:8px">📥 ${year}년 ${personLabel} 연간 수입 (수입 탭에서 자동 집계)</div>
-      ${row('총급여 (정기+상여)',r.gross,{big:true,color:'#4ade80'})}
+      ${r.inc.estimated?`<div style="background:rgba(251,191,36,.12);border:1px solid #fbbf2466;border-radius:10px;padding:9px 11px;margin-bottom:10px">
+        <div style="font-size:11px;color:#fbbf24;font-weight:700;margin-bottom:2px">📈 연간 추정치 적용 중</div>
+        <div style="font-size:10px;color:var(--text3);line-height:1.5">${r.inc.enteredMonths}개월치 입력됨 → 월평균 기준으로 12개월 추정. 실제 입력액 ${fmt(r.inc.actualGross)} × (12/${r.inc.enteredMonths}) = ${fmt(r.gross)}. 나머지 달도 입력하면 자동으로 실제값이 반영돼요.</div>
+      </div>`:''}
+      ${row('총급여 (정기+상여)'+(r.inc.estimated?' (추정)':''),r.gross,{big:true,color:r.inc.estimated?'#fbbf24':'#4ade80'})}
       ${row('└ 정기급여',r.inc.regularGross,{sub:true})}
       ${row('└ 상여·성과급',r.inc.bonus,{sub:true})}
-      ${row('기납부 소득세',r.prepaidTax,{sub:true})}
-      ${row('기납부 지방소득세',r.prepaidLocal,{sub:true})}
+      ${row('기납부 소득세'+(r.inc.estimated?' (추정)':''),r.prepaidTax,{sub:true})}
+      ${row('기납부 지방소득세'+(r.inc.estimated?' (추정)':''),r.prepaidLocal,{sub:true})}
       <div style="font-size:9px;color:var(--text4);margin-top:6px">※ 국민연금·건강보험·고용보험 공제액도 자동 반영됩니다</div>
     </div>`+
 
@@ -4242,7 +4433,13 @@ function renderHoldings(){
       // 월별 입력
       '<div style="font-size:10px;color:var(--text4);margin-bottom:6px;display:flex;gap:6px"><span style="width:96px">📅 월</span><span style="flex:1">원금</span><span style="flex:1">평가액</span><span style="width:24px"></span></div>'+
       histRows+
-      '<button onclick="addHoldHist('+i+')" style="font-size:11px;color:#a78bfa;background:none;border:1px dashed var(--purple-border);border-radius:8px;padding:6px;cursor:pointer;width:100%;font-family:\'Noto Sans KR\',sans-serif;margin-bottom:'+(hist.length>=2?'12px':'0')+'">+ 월별 기록 추가</button>'+
+      '<button onclick="addHoldHist('+i+')" style="font-size:11px;color:#a78bfa;background:none;border:1px dashed var(--purple-border);border-radius:8px;padding:6px;cursor:pointer;width:100%;font-family:\'Noto Sans KR\',sans-serif;margin-bottom:'+(hist.length>=2?'12px':'10px')+'">+ 월별 기록 추가</button>'+
+      // 연말정산 연동
+      '<div style="margin-bottom:'+(hist.length>=2?'12px':'0')+'">'+
+      '<div style="font-size:10px;color:#93c5fd;margin-bottom:4px;font-weight:600">🧾 연말정산 공제 연동</div>'+
+      taxLinkSelect('투자',h.taxLink,'updHolding('+i+',\'taxLink\',this.value)')+
+      (h.taxLink&&h.taxLink!=='none'?'<div style="font-size:9.5px;color:var(--text4);margin-top:4px">📥 올해 매수액 '+fmt(getInvestAnnualPayment(h,curYear))+'이 연말정산에 자동 반영돼요</div>':'')+
+      '</div>'+
       // 선형 그래프 (2개월 이상일 때)
       (hist.length>=2?'<div style="border-top:1px solid var(--border);padding-top:12px"><div style="font-size:10px;color:#c4b5fd;font-weight:600;margin-bottom:8px">📈 원금 대비 평가액 추이</div>'+
         '<svg id="'+graphId+'" viewBox="0 0 300 130" preserveAspectRatio="none" style="width:100%;height:130px;display:block"></svg>'+
